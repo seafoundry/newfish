@@ -11,7 +11,7 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100">
       <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-        <div className="text-2xl font-bold text-blue-600">Coral Data Hub</div>
+        <div className="text-2xl font-bold text-blue-600">BabelFish</div>
         <div className="space-x-4">
           <SignInButton mode="modal" forceRedirectUrl="/dashboard">
             <button className="text-blue-600 hover:text-blue-800">
@@ -29,7 +29,7 @@ export default async function Home() {
       <main className="container mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto text-center">
           <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Coral Growth Data Analysis Platform
+            BabelFish Analysis Platform
           </h1>
           <p className="text-xl text-gray-600 mb-8">
             Share, analyze, and gain insights from coral growth data across

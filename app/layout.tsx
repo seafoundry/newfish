@@ -6,7 +6,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Coral Data Hub",
+  title: "BabelFish",
   description: "Share and analyze coral growth data across agencies",
 };
 
