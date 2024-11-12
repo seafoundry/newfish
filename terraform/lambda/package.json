@@ -1,0 +1,19 @@
+{
+  "name": "csv-validator-lambda",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.454.0",
+    "csv-parse": "^5.5.2"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^20.17.6",
+    "typescript": "^5.6.3"
+  }
+}
