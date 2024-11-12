@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  clerkUserId String       @unique
+  email       String       @unique
+  fileUploads FileUpload[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model FileUpload {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  fileName String
+  mimeType String
+
+  status FileStatus @default(PENDING)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  processedAt DateTime?
+
+  errorMessage String?
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum FileStatus {
+  PENDING // waiting for processing
+  PROCESSING // currently being processed
+  COMPLETED // successfully processed
+  FAILED // processing failed
+  DELETED // marked as deleted
+}
