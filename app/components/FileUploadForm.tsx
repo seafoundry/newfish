@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getSignedUrl } from "@/app/actions/getSignedUrl";
 import { FileCategory } from "@/app/types/files";
+import Papa from "papaparse";
 
 const categories: FileCategory[] = [
   "Genetics",
@@ -11,6 +12,45 @@ const categories: FileCategory[] = [
   "Outplanting",
   "Monitoring",
 ];
+
+const requiredColumns = {
+  Genetics: ["Local ID/Genet Propagation", "Species"],
+  Nursery: ["Genet ID", "Quantity", "Nursery"],
+  Outplanting: ["Gonet ID", "QTY (Fragments)", "Grouping (cluster or tag)"],
+  Monitoring: [],
+};
+
+const validateFileColumns = (
+  file: File,
+  category: FileCategory
+): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    if (category === "Monitoring") {
+      resolve(true);
+      return;
+    }
+
+    Papa.parse(file, {
+      header: true,
+      preview: 1,
+      complete: (results) => {
+        const headers = results.meta.fields || [];
+        const required = requiredColumns[category];
+
+        const missingColumns = required.filter((col) => !headers.includes(col));
+
+        if (missingColumns.length > 0) {
+          reject(`Missing required columns: ${missingColumns.join(", ")}`);
+        } else {
+          resolve(true);
+        }
+      },
+      error: (error) => {
+        reject(`Failed to parse file: ${error.message}`);
+      },
+    });
+  });
+};
 
 interface FormData {
   name: string;
@@ -81,6 +121,33 @@ export default function FileUploadForm() {
       setFormData((prev) => ({ ...prev, [name]: value }));
     },
     []
+  );
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.name.toLowerCase().endsWith(".csv")) {
+        setUploadError("Please upload a CSV file");
+        return;
+      }
+
+      try {
+        if (category) {
+          await validateFileColumns(file, category as FileCategory);
+          setFormData((prev) => ({ ...prev, file }));
+          setUploadError(null);
+        } else {
+          setUploadError("Please select a category first");
+        }
+      } catch (error) {
+        setUploadError(error instanceof Error ? error.message : String(error));
+        e.target.value = "";
+        setFormData((prev) => ({ ...prev, file: null }));
+      }
+    },
+    [category]
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -247,16 +314,12 @@ export default function FileUploadForm() {
 
         <div className="mt-4">
           <label className="block text-sm font-medium mb-1 text-gray-700">
-            File Upload <span className="text-red-500">*</span>
+            File Upload (CSV) <span className="text-red-500">*</span>
           </label>
           <input
             type="file"
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                file: e.target.files ? e.target.files[0] : null,
-              }))
-            }
+            accept=".csv"
+            onChange={handleFileChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
