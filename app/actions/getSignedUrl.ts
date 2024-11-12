@@ -11,6 +11,10 @@ export async function getSignedUrl(
   fileType: string,
   category: string
 ): Promise<string> {
+  if (fileType !== "text/csv") {
+    throw new Error("Only CSV files are allowed");
+  }
+
   const user = await currentUser();
 
   if (!user) {
