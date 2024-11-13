@@ -1,8 +1,8 @@
 "use server";
 
-import { currentUser } from "@clerk/nextjs/server";
 import { createSignedUploadUrl } from "@/app/lib/aws";
-import { PrismaClient } from "@prisma/client";
+import { currentUser } from "@clerk/nextjs/server";
+import { FileCategory, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -39,6 +39,7 @@ export async function getSignedUrl(
         userId: dbUser.id,
         fileName,
         mimeType: fileType,
+        category: category as FileCategory,
       },
     });
 

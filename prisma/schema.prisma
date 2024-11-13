@@ -17,23 +17,93 @@ model User {
 }
 
 model FileUpload {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  fileName      String
+  mimeType      String
+  category      FileCategory
+  status        FileStatus   @default(PENDING)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  processedAt   DateTime?
+  errorMessage  String?
 
-  fileName String
-  mimeType String
-
-  status FileStatus @default(PENDING)
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  processedAt DateTime?
-
-  errorMessage String?
+  geneticsFile    GeneticsFile?
+  nurseryFile     NurseryFile?
+  outplantingFile OutplantingFile?
+  monitoringFile  MonitoringFile?
 
   @@index([userId])
   @@index([status])
+  @@index([category])
+}
+
+model GeneticsFile {
+  id                String     @id @default(cuid())
+  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+  fileUploadId     String     @unique
+  
+  date             String
+  name             String
+  email            String
+  localIdGenetProp String
+  species          String
+  rawData          Json
+
+  @@index([fileUploadId])
+}
+
+model NurseryFile {
+  id           String     @id @default(cuid())
+  fileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
+  fileUploadId String     @unique
+  
+  date         String
+  name         String
+  email        String
+  organization String
+  genetId      String
+  quantity     Int
+  nursery      String
+  rawData      Json
+
+  @@index([fileUploadId])
+}
+
+model OutplantingFile {
+  id               String     @id @default(cuid())
+  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+  fileUploadId     String     @unique
+  
+  date             String
+  name             String
+  email            String
+  reefName         String
+  eventCenterpoint String
+  siteName         String
+  eventName        String
+  genetId          String
+  quantity         Int
+  grouping         String
+  rawData          Json
+
+  @@index([fileUploadId])
+}
+
+model MonitoringFile {
+  id           String     @id @default(cuid())
+  fileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
+  fileUploadId String     @unique
+  
+  date         String
+  name         String
+  email        String
+  coordinates  String
+  eventId      String
+  rawData      Json
+
+  @@index([fileUploadId])
 }
 
 enum FileStatus {
@@ -42,4 +112,11 @@ enum FileStatus {
   COMPLETED // successfully processed
   FAILED // processing failed
   DELETED // marked as deleted
+}
+
+enum FileCategory {
+  Genetics
+  Nursery
+  Outplanting
+  Monitoring
 }

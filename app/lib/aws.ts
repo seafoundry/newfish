@@ -51,7 +51,12 @@ export async function listUserFiles(userId: string) {
     });
 
     const response = await s3Client.send(command);
-    return response.Contents || [];
+    const contents = response.Contents || [];
+
+    return contents.filter((file) => {
+      const key = file.Key || "";
+      return !key.includes("/invalid/");
+    });
   } catch (error) {
     console.error("Error listing files:", error);
     throw new Error("Failed to list files");
