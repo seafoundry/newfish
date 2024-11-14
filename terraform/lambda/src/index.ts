@@ -58,7 +58,7 @@ export async function handler(event: S3Event, context: Context) {
 
   try {
     const pathParts = key.split("/");
-    const category = pathParts[2]; // Original category position
+    const category = pathParts[2];
 
     if (
       !category ||

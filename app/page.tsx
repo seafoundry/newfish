@@ -13,6 +13,12 @@ export default async function Home() {
       <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
         <div className="text-2xl font-bold text-blue-600">BabelFish</div>
         <div className="space-x-4">
+          <a
+            href="/insights"
+            className="text-blue-600 hover:text-blue-800 mr-4"
+          >
+            Insights
+          </a>
           <SignInButton mode="modal" forceRedirectUrl="/dashboard">
             <button className="text-blue-600 hover:text-blue-800">
               Sign In
