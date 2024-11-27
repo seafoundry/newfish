@@ -19,6 +19,7 @@ resource "aws_lambda_function" "csv_validator" {
       REQUIRED_COLUMNS_GENETICS    = "Local ID/Genet Propagation,Species"
       REQUIRED_COLUMNS_NURSERY     = "Genet ID,Quantity,Nursery"
       REQUIRED_COLUMNS_OUTPLANTING = "Gonet ID,QTY (Fragments),Grouping (cluster or tag)"
+      DATABASE_URL                 = var.database_url
     }
   }
 }

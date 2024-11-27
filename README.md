@@ -28,7 +28,7 @@ Before you begin, ensure you have:
 1. Create an AWS account if you don't have one
 2. Set up IAM user:
    - Create new IAM user
-   - Attach S3 permissions policy
+   - Attach S3 permissions, Lambda permissions and IAM permissions.
    - Generate access credentials:
      - `AWS_ACCESS_KEY_ID`
      - `AWS_SECRET_ACCESS_KEY`

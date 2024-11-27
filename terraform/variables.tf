@@ -21,3 +21,9 @@ variable "allowed_origins" {
   type        = list(string)
   default     = ["*"] # dev
 }
+
+variable "database_url" {
+  description = "Database connection URL"
+  type        = string
+  sensitive   = true
+}

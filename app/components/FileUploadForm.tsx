@@ -14,8 +14,8 @@ const categories: FileCategory[] = [
 ];
 
 const requiredColumns = {
-  Genetics: ["Local ID/Genet Propagation", "Species"],
-  Nursery: ["Genet ID", "Quantity", "Nursery"],
+  Genetics: ["Local ID/Genet Propagation"],
+  Nursery: ["Genotype", "Quantity", "Nursery"],
   Outplanting: ["Gonet ID", "QTY (Fragments)", "Grouping (cluster or tag)"],
   Monitoring: [],
 };
@@ -34,13 +34,19 @@ const validateFileColumns = (
       header: true,
       preview: 1,
       complete: (results) => {
-        const headers = results.meta.fields || [];
-        const required = requiredColumns[category];
+        const headers = results.meta.fields?.map((h) => h.toLowerCase()) || [];
+        const required = requiredColumns[category].map((col) =>
+          col.toLowerCase()
+        );
 
         const missingColumns = required.filter((col) => !headers.includes(col));
 
         if (missingColumns.length > 0) {
-          reject(`Missing required columns: ${missingColumns.join(", ")}`);
+          reject(
+            `Missing required columns: ${requiredColumns[category]
+              .filter((col) => missingColumns.includes(col.toLowerCase()))
+              .join(", ")}`
+          );
         } else {
           resolve(true);
         }
@@ -160,10 +166,35 @@ export default function FileUploadForm() {
         throw new Error("No file selected");
       }
 
+      const metadata: Record<string, string> = {};
+
+      if (formData.name) metadata.name = formData.name;
+      if (formData.email) metadata.email = formData.email;
+      if (formData.date) metadata.date = formData.date;
+
+      switch (category) {
+        case "Nursery":
+          if (formData.organization)
+            metadata.organization = formData.organization;
+          break;
+        case "Outplanting":
+          if (formData.reefName) metadata.reefName = formData.reefName;
+          if (formData.eventCenterpoint)
+            metadata.eventCenterpoint = formData.eventCenterpoint;
+          if (formData.siteName) metadata.siteName = formData.siteName;
+          if (formData.eventName) metadata.eventName = formData.eventName;
+          break;
+        case "Monitoring":
+          if (formData.coordinates) metadata.coordinates = formData.coordinates;
+          if (formData.eventId) metadata.eventId = formData.eventId;
+          break;
+      }
+
       const signedUrl = await getSignedUrl(
         formData.file.name,
         formData.file.type,
-        category
+        category,
+        metadata
       );
 
       const uploadResponse = await fetch(signedUrl, {

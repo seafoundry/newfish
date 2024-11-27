@@ -1,0 +1,118 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model FileUpload {
+  id              String           @id
+  userId          String
+  fileName        String
+  mimeType        String
+  status          FileStatus       @default(PENDING)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  processedAt     DateTime?
+  errorMessage    String?
+  category        FileCategory
+  User            User             @relation(fields: [userId], references: [id])
+  GeneticsFile    GeneticsFile?
+  MonitoringFile  MonitoringFile?
+  NurseryFile     NurseryFile?
+  OutplantingFile OutplantingFile?
+
+  @@index([category])
+  @@index([status])
+  @@index([userId])
+}
+
+model GeneticsFile {
+  id               String     @id
+  fileUploadId     String     @unique
+  localIdGenetProp String
+  rawData          Json
+  species          String
+  date             String
+  email            String
+  name             String
+  FileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+
+  @@index([fileUploadId])
+}
+
+model MonitoringFile {
+  id           String     @id
+  fileUploadId String     @unique
+  coordinates  String
+  eventId      String
+  rawData      Json
+  date         String
+  email        String
+  name         String
+  FileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
+
+  @@index([fileUploadId])
+}
+
+model NurseryFile {
+  id           String     @id
+  fileUploadId String     @unique
+  organization String
+  rawData      Json
+  date         String
+  email        String
+  genetId      String
+  name         String
+  nursery      String
+  quantity     Int
+  FileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
+
+  @@index([fileUploadId])
+}
+
+model OutplantingFile {
+  id               String     @id
+  fileUploadId     String     @unique
+  reefName         String
+  eventCenterpoint String
+  siteName         String
+  eventName        String
+  rawData          Json
+  date             String
+  email            String
+  genetId          String
+  grouping         String
+  name             String
+  quantity         Int
+  FileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+
+  @@index([fileUploadId])
+}
+
+model User {
+  id          String       @id
+  email       String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime
+  clerkUserId String       @unique
+  FileUpload  FileUpload[]
+}
+
+enum FileCategory {
+  Genetics
+  Nursery
+  Outplanting
+  Monitoring
+}
+
+enum FileStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  DELETED
+}

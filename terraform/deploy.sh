@@ -1,46 +1,41 @@
 #!/bin/bash
 
-if [ -z "$1" ]; then
-    echo "Usage: ./deploy.sh <environment>"
-    echo "Example: ./deploy.sh dev"
+set -e
+
+if [ -f ../.env ]; then
+    export $(cat ../.env | grep -v '^#' | xargs)
+else
+    echo "Error: .env file not found"
     exit 1
 fi
 
-ENV=$1
+if [ -z "$DATABASE_URL" ]; then
+    echo "Error: DATABASE_URL is not set in .env"
+    exit 1
+fi
+
+ENV=${1:-dev}
 
 echo "Building Lambda function..."
 cd lambda
-
 rm -rf dist
-rm -rf node_modules
 
-npm install --production
+npm install
 
-# dev deps for ts compilation
-npm install --save-dev typescript @types/node @types/aws-lambda
+npx prisma generate
 
 npm run build
 
-cp -r node_modules dist/
+mkdir -p dist/node_modules/.prisma/client
+mkdir -p dist/node_modules/@prisma/client
+
+cp -r node_modules/.prisma/client/* dist/node_modules/.prisma/client/
+cp -r node_modules/@prisma/client/* dist/node_modules/@prisma/client/
+cp prisma/schema.prisma dist/
 
 cd ..
 
-if [ ! -f "lambda/dist/index.js" ]; then
-    echo "Lambda build failed - index.js not found"
-    exit 1
-fi
-
+echo "Running Terraform..."
 terraform init
-
-echo "Planning Terraform deployment for $ENV environment..."
-terraform plan -var-file="$ENV.tfvars" -out=tfplan
-
-read -p "Apply changes? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-    echo "Applying Terraform changes..."
-    terraform apply tfplan
-else
-    echo "Deployment cancelled"
-fi 
+terraform plan -var-file="${ENV}.tfvars" -var="database_url=${DATABASE_URL}"
+terraform apply -var-file="${ENV}.tfvars" -var="database_url=${DATABASE_URL}" -auto-approve

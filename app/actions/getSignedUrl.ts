@@ -9,7 +9,8 @@ const prisma = new PrismaClient();
 export async function getSignedUrl(
   fileName: string,
   fileType: string,
-  category: string
+  category: string,
+  metadata: Record<string, string>
 ): Promise<string> {
   if (fileType !== "text/csv") {
     throw new Error("Only CSV files are allowed");
@@ -34,12 +35,77 @@ export async function getSignedUrl(
       throw new Error("User not found in database");
     }
 
+    console.log("Creating FileUpload record with fileName:", fileName);
+    const fileUploadId = crypto.randomUUID();
+
     await prisma.fileUpload.create({
       data: {
+        id: fileUploadId,
         userId: dbUser.id,
         fileName,
         mimeType: fileType,
         category: category as FileCategory,
+        updatedAt: new Date(),
+        ...(() => {
+          const baseData = {
+            name: metadata.name,
+            email: metadata.email,
+            date: metadata.date,
+            rawData: {},
+          };
+
+          switch (category) {
+            case "Genetics":
+              return {
+                geneticsFile: {
+                  create: {
+                    ...baseData,
+                    localIdGenetProp: metadata.localIdGenetProp || "",
+                    species: metadata.species || "",
+                  },
+                },
+              };
+            case "Nursery":
+              return {
+                nurseryFile: {
+                  create: {
+                    ...baseData,
+                    organization: metadata.organization || "",
+                    genetId: metadata.genetId || "",
+                    quantity: parseInt(metadata.quantity || "0"),
+                    nursery: metadata.nursery || "",
+                  },
+                },
+              };
+            case "Outplanting":
+              return {
+                outplantingFile: {
+                  create: {
+                    ...baseData,
+                    reefName: metadata.reefName || "",
+                    eventCenterpoint: metadata.eventCenterpoint || "",
+                    siteName: metadata.siteName || "",
+                    eventName: metadata.eventName || "",
+                    genetId: metadata.genetId || "",
+                    quantity: parseInt(metadata.quantity || "0"),
+                    grouping: metadata.grouping || "",
+                  },
+                },
+              };
+            case "Monitoring":
+              return {
+                monitoringFile: {
+                  create: {
+                    ...baseData,
+                    coordinates: metadata.coordinates || "",
+                    eventId: metadata.eventId || "",
+                  },
+                },
+              };
+            default:
+              throw new Error(`Invalid category: ${category}`);
+          }
+        })(),
       },
     });
 
