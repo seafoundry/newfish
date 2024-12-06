@@ -1,163 +1,228 @@
 "use client";
 
-import {
-  BarElement,
-  CategoryScale,
-  Chart as ChartJS,
-  Legend,
-  LinearScale,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-} from "chart.js";
-import { useState } from "react";
-import { Bar, Line } from "react-chartjs-2";
+import { getInsights } from "@/app/actions/getInsights";
+import { Tab } from "@headlessui/react";
+import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
+import { useEffect, useState } from "react";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
-
-const mockData = {
-  labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-  datasets: [
-    {
-      label: "Coral Growth Rate (mm/year)",
-      data: [12, 19, 15, 17, 14, 15],
-      borderColor: "rgb(75, 192, 192)",
-      backgroundColor: "rgba(75, 192, 192, 0.5)",
-    },
-  ],
+type NurseryInventory = {
+  nurseries: {
+    name: string;
+    totalCorals: number;
+    genotypes: {
+      id: string;
+      quantity: number;
+    }[];
+  }[];
+  genotypeDistribution: {
+    id: string;
+    totalQuantity: number;
+    nurseryPresence: string[];
+  }[];
 };
 
-const mockBarData = {
-  labels: ["Site A", "Site B", "Site C", "Site D", "Site E"],
-  datasets: [
-    {
-      label: "Average Coral Coverage (%)",
-      data: [65, 45, 78, 52, 63],
-      backgroundColor: "rgba(53, 162, 235, 0.5)",
-    },
-  ],
+type SortConfig = {
+  key: string;
+  direction: "asc" | "desc";
 };
 
 export default function InsightsContent() {
-  const [selectedTimeRange, setSelectedTimeRange] = useState("6M");
-  const [selectedMetric, setSelectedMetric] = useState("growth");
+  const [data, setData] = useState<NurseryInventory | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: "",
+    direction: "asc",
+  });
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    getInsights()
+      .then(setData)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  // sorts the data based on the key and direction
+  const sortData = <T extends Record<string, any>>(
+    items: T[],
+    key: string
+  ): T[] => {
+    if (!key) return items;
+
+    return [...items].sort((a, b) => {
+      if (sortConfig.direction === "asc") {
+        return a[key] > b[key] ? 1 : -1;
+      }
+      return a[key] < b[key] ? 1 : -1;
+    });
+  };
+
+  const requestSort = (key: string) => {
+    setSortConfig({
+      key,
+      direction:
+        sortConfig.key === key && sortConfig.direction === "asc"
+          ? "desc"
+          : "asc",
+    });
+  };
+
+  const SortableHeader = ({
+    label,
+    sortKey,
+  }: {
+    label: string;
+    sortKey: string;
+  }) => (
+    <th
+      className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
+      onClick={() => requestSort(sortKey)}
+    >
+      <div className="flex items-center space-x-1">
+        <span>{label}</span>
+        <span className="flex flex-col">
+          <ChevronUpIcon
+            className={`h-3 w-3 ${
+              sortConfig.key === sortKey && sortConfig.direction === "asc"
+                ? "text-blue-500"
+                : "text-gray-400"
+            }`}
+          />
+          <ChevronDownIcon
+            className={`h-3 w-3 ${
+              sortConfig.key === sortKey && sortConfig.direction === "desc"
+                ? "text-blue-500"
+                : "text-gray-400"
+            }`}
+          />
+        </span>
+      </div>
+    </th>
+  );
+
+  if (loading) return <div>Loading...</div>;
+  if (!data) return <div>No data available</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">
-          Coral Growth Insights
-        </h1>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex justify-between mb-4">
-              <h2 className="text-xl font-semibold">Growth Trends</h2>
-              <select
-                value={selectedTimeRange}
-                onChange={(e) => setSelectedTimeRange(e.target.value)}
-                className="border rounded-md px-2 py-1"
-              >
-                <option value="1M">Last Month</option>
-                <option value="3M">Last 3 Months</option>
-                <option value="6M">Last 6 Months</option>
-                <option value="1Y">Last Year</option>
-              </select>
-            </div>
-            <div className="h-[300px]">
-              <Line
-                data={mockData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex justify-between mb-4">
-              <h2 className="text-xl font-semibold">Site Comparison</h2>
-              <select
-                value={selectedMetric}
-                onChange={(e) => setSelectedMetric(e.target.value)}
-                className="border rounded-md px-2 py-1"
-              >
-                <option value="growth">Growth Rate</option>
-                <option value="coverage">Coverage</option>
-                <option value="health">Health Index</option>
-              </select>
-            </div>
-            <div className="h-[300px]">
-              <Bar
-                data={mockBarData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                }}
-              />
-            </div>
-          </div>
+    <div className="p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Search genotypes..."
+            className="w-full px-4 py-2 border rounded-lg"
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow mb-8">
-          <h2 className="text-xl font-semibold mb-4">Quick Stats</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-sm text-blue-600">Average Growth Rate</div>
-              <div className="text-2xl font-bold">15.3 mm/year</div>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-sm text-green-600">Healthy Colonies</div>
-              <div className="text-2xl font-bold">87%</div>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-sm text-purple-600">Total Sites</div>
-              <div className="text-2xl font-bold">24</div>
-            </div>
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <div className="text-sm text-orange-600">Data Points</div>
-              <div className="text-2xl font-bold">1,432</div>
-            </div>
-          </div>
-        </div>
+        <Tab.Group>
+          <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1 mb-4">
+            <Tab
+              className={({ selected }) =>
+                `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+              ${
+                selected
+                  ? "bg-white text-blue-700 shadow"
+                  : "text-blue-500 hover:bg-white/[0.12] hover:text-blue-600"
+              }`
+              }
+            >
+              By Nursery
+            </Tab>
+            <Tab
+              className={({ selected }) =>
+                `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+              ${
+                selected
+                  ? "bg-white text-blue-700 shadow"
+                  : "text-blue-500 hover:bg-white/[0.12] hover:text-blue-600"
+              }`
+              }
+            >
+              By Genotype
+            </Tab>
+          </Tab.List>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Query Data</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <select className="border rounded-md px-3 py-2">
-              <option value="">Select Site</option>
-              <option value="site-a">Site A</option>
-              <option value="site-b">Site B</option>
-              <option value="site-c">Site C</option>
-            </select>
-            <select className="border rounded-md px-3 py-2">
-              <option value="">Select Species</option>
-              <option value="acropora">Acropora</option>
-              <option value="porites">Porites</option>
-              <option value="pocillopora">Pocillopora</option>
-            </select>
-            <select className="border rounded-md px-3 py-2">
-              <option value="">Select Time Period</option>
-              <option value="3m">Last 3 Months</option>
-              <option value="6m">Last 6 Months</option>
-              <option value="1y">Last Year</option>
-            </select>
-          </div>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-            Run Query
-          </button>
-        </div>
+          <Tab.Panels>
+            <Tab.Panel>
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <SortableHeader label="Nursery" sortKey="name" />
+                      <SortableHeader label="Genotype" sortKey="id" />
+                      <SortableHeader label="Quantity" sortKey="quantity" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {data.nurseries.flatMap((nursery) =>
+                      sortData(nursery.genotypes, sortConfig.key)
+                        .filter((genotype) =>
+                          genotype.id
+                            .toLowerCase()
+                            .includes(searchTerm.toLowerCase())
+                        )
+                        .map((genotype) => (
+                          <tr key={`${nursery.name}-${genotype.id}`}>
+                            <td className="px-4 py-2">{nursery.name}</td>
+                            <td className="px-4 py-2 font-mono">
+                              {genotype.id}
+                            </td>
+                            <td className="px-4 py-2">{genotype.quantity}</td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Tab.Panel>
+
+            <Tab.Panel>
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <SortableHeader label="Genotype" sortKey="id" />
+                      <SortableHeader
+                        label="Total Quantity"
+                        sortKey="totalQuantity"
+                      />
+                      <SortableHeader
+                        label="Nursery Count"
+                        sortKey="nurseryPresence"
+                      />
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Locations
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {sortData(data.genotypeDistribution, sortConfig.key)
+                      .filter((genotype) =>
+                        genotype.id
+                          .toLowerCase()
+                          .includes(searchTerm.toLowerCase())
+                      )
+                      .map((genotype) => (
+                        <tr key={genotype.id}>
+                          <td className="px-4 py-2 font-mono">{genotype.id}</td>
+                          <td className="px-4 py-2">
+                            {genotype.totalQuantity}
+                          </td>
+                          <td className="px-4 py-2">
+                            {genotype.nurseryPresence.length}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-500">
+                            {genotype.nurseryPresence.join(", ")}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </Tab.Panel>
+          </Tab.Panels>
+        </Tab.Group>
       </div>
     </div>
   );
