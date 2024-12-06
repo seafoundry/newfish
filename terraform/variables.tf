@@ -27,3 +27,9 @@ variable "database_url" {
   type        = string
   sensitive   = true
 }
+
+variable "iam_user_name" {
+  type        = string
+  description = "Name of the IAM user to create"
+  default     = "newfish-deploy-user"
+}

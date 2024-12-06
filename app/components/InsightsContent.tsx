@@ -43,6 +43,7 @@ export default function InsightsContent() {
   }, []);
 
   // sorts the data based on the key and direction
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sortData = <T extends Record<string, any>>(
     items: T[],
     key: string
