@@ -29,5 +29,5 @@
     ".next/types/**/*.ts",
     "next.config.mfs"
   ],
-  "exclude": ["node_modules", "terraform", "**/*.tf.ts"]
+  "exclude": ["node_modules", "terraform"]
 }
