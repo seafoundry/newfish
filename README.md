@@ -1,4 +1,4 @@
-# NewFish
+# NewFish!
 
 A brief description of your project should go here.
 
