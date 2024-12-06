@@ -17,17 +17,17 @@ model User {
 }
 
 model FileUpload {
-  id            String       @id @default(cuid())
-  userId        String
-  user          User         @relation(fields: [userId], references: [id])
-  fileName      String
-  mimeType      String
-  category      FileCategory
-  status        FileStatus   @default(PENDING)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  processedAt   DateTime?
-  errorMessage  String?
+  id           String       @id @default(cuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id])
+  fileName     String
+  mimeType     String
+  category     FileCategory
+  status       FileStatus   @default(PENDING)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  processedAt  DateTime?
+  errorMessage String?
 
   geneticsFile    GeneticsFile?
   nurseryFile     NurseryFile?
@@ -40,42 +40,56 @@ model FileUpload {
 }
 
 model GeneticsFile {
-  id                String     @id @default(cuid())
-  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
-  fileUploadId     String     @unique
-  
-  date             String
-  name             String
-  email            String
+  id           String        @id @default(cuid())
+  fileUpload   FileUpload    @relation(fields: [fileUploadId], references: [id])
+  fileUploadId String        @unique
+  date         String
+  name         String
+  email        String
+  rows         GeneticsRow[]
+
+  @@index([fileUploadId])
+}
+
+model GeneticsRow {
+  id               String       @id @default(cuid())
+  geneticsFile     GeneticsFile @relation(fields: [fileUploadId], references: [id])
+  fileUploadId     String
   localIdGenetProp String
-  species          String
-  rawData          Json
+  additionalData   Json
 
   @@index([fileUploadId])
 }
 
 model NurseryFile {
-  id           String     @id @default(cuid())
-  fileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
-  fileUploadId String     @unique
-  
+  id           String       @id @default(cuid())
+  fileUpload   FileUpload   @relation(fields: [fileUploadId], references: [id])
+  fileUploadId String       @unique
   date         String
   name         String
   email        String
   organization String
-  genetId      String
-  quantity     Int
-  nursery      String
-  rawData      Json
+  rows         NurseryRow[]
+
+  @@index([fileUploadId])
+}
+
+model NurseryRow {
+  id             String      @id @default(cuid())
+  nurseryFile    NurseryFile @relation(fields: [fileUploadId], references: [id])
+  fileUploadId   String
+  genetId        String
+  quantity       Int
+  nursery        String
+  additionalData Json
 
   @@index([fileUploadId])
 }
 
 model OutplantingFile {
-  id               String     @id @default(cuid())
-  fileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
-  fileUploadId     String     @unique
-  
+  id               String           @id @default(cuid())
+  fileUpload       FileUpload       @relation(fields: [fileUploadId], references: [id])
+  fileUploadId     String           @unique
   date             String
   name             String
   email            String
@@ -83,25 +97,42 @@ model OutplantingFile {
   eventCenterpoint String
   siteName         String
   eventName        String
-  genetId          String
-  quantity         Int
-  grouping         String
-  rawData          Json
+  rows             OutplantingRow[]
+
+  @@index([fileUploadId])
+}
+
+model OutplantingRow {
+  id              String          @id @default(cuid())
+  outplantingFile OutplantingFile @relation(fields: [fileUploadId], references: [id])
+  fileUploadId    String
+  genetId         String
+  quantity        Int
+  grouping        String
+  additionalData  Json
 
   @@index([fileUploadId])
 }
 
 model MonitoringFile {
-  id           String     @id @default(cuid())
-  fileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
-  fileUploadId String     @unique
-  
+  id           String          @id @default(cuid())
+  fileUpload   FileUpload      @relation(fields: [fileUploadId], references: [id])
+  fileUploadId String          @unique
   date         String
   name         String
   email        String
   coordinates  String
   eventId      String
-  rawData      Json
+  rows         MonitoringRow[]
+
+  @@index([fileUploadId])
+}
+
+model MonitoringRow {
+  id             String         @id @default(cuid())
+  monitoringFile MonitoringFile @relation(fields: [fileUploadId], references: [id])
+  fileUploadId   String
+  additionalData Json
 
   @@index([fileUploadId])
 }

@@ -31,64 +31,56 @@ model FileUpload {
 }
 
 model GeneticsFile {
-  id               String     @id
-  fileUploadId     String     @unique
-  localIdGenetProp String
-  rawData          Json
-  species          String
-  date             String
-  email            String
-  name             String
-  FileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+  id           String        @id
+  fileUploadId String        @unique
+  date         String
+  email        String
+  name         String
+  FileUpload   FileUpload    @relation(fields: [fileUploadId], references: [id])
+  GeneticsRow  GeneticsRow[]
 
   @@index([fileUploadId])
 }
 
 model MonitoringFile {
-  id           String     @id
-  fileUploadId String     @unique
-  coordinates  String
-  eventId      String
-  rawData      Json
-  date         String
-  email        String
-  name         String
-  FileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
+  id            String          @id
+  fileUploadId  String          @unique
+  date          String
+  email         String
+  name          String
+  coordinates   String
+  eventId       String
+  FileUpload    FileUpload      @relation(fields: [fileUploadId], references: [id])
+  MonitoringRow MonitoringRow[]
 
   @@index([fileUploadId])
 }
 
 model NurseryFile {
-  id           String     @id
-  fileUploadId String     @unique
-  organization String
-  rawData      Json
+  id           String       @id
+  fileUploadId String       @unique
   date         String
   email        String
-  genetId      String
   name         String
-  nursery      String
-  quantity     Int
-  FileUpload   FileUpload @relation(fields: [fileUploadId], references: [id])
+  organization String
+  FileUpload   FileUpload   @relation(fields: [fileUploadId], references: [id])
+  NurseryRow   NurseryRow[]
 
   @@index([fileUploadId])
 }
 
 model OutplantingFile {
-  id               String     @id
-  fileUploadId     String     @unique
-  reefName         String
-  eventCenterpoint String
-  siteName         String
-  eventName        String
-  rawData          Json
+  id               String           @id
+  fileUploadId     String           @unique
   date             String
   email            String
-  genetId          String
-  grouping         String
   name             String
-  quantity         Int
-  FileUpload       FileUpload @relation(fields: [fileUploadId], references: [id])
+  eventCenterpoint String
+  eventName        String
+  reefName         String
+  siteName         String
+  FileUpload       FileUpload       @relation(fields: [fileUploadId], references: [id])
+  OutplantingRow   OutplantingRow[]
 
   @@index([fileUploadId])
 }
@@ -100,6 +92,49 @@ model User {
   updatedAt   DateTime
   clerkUserId String       @unique
   FileUpload  FileUpload[]
+}
+
+model GeneticsRow {
+  id               String       @id
+  fileUploadId     String
+  localIdGenetProp String
+  additionalData   Json
+  GeneticsFile     GeneticsFile @relation(fields: [fileUploadId], references: [id])
+
+  @@index([fileUploadId])
+}
+
+model MonitoringRow {
+  id             String         @id
+  fileUploadId   String
+  additionalData Json
+  MonitoringFile MonitoringFile @relation(fields: [fileUploadId], references: [id])
+
+  @@index([fileUploadId])
+}
+
+model NurseryRow {
+  id             String      @id
+  fileUploadId   String
+  genetId        String
+  quantity       Int
+  nursery        String
+  additionalData Json
+  NurseryFile    NurseryFile @relation(fields: [fileUploadId], references: [id])
+
+  @@index([fileUploadId])
+}
+
+model OutplantingRow {
+  id              String          @id
+  fileUploadId    String
+  genetId         String
+  quantity        Int
+  grouping        String
+  additionalData  Json
+  OutplantingFile OutplantingFile @relation(fields: [fileUploadId], references: [id])
+
+  @@index([fileUploadId])
 }
 
 enum FileCategory {
