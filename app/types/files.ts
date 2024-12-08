@@ -37,14 +37,17 @@ export interface MonitoringFile extends BaseFileMetadata {
   eventId: string;
 }
 
+export type FileStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED"
+  | "DELETED";
+
 export interface FileData {
   id: string;
   fileName: string;
   category: string;
   uploadDate: string;
-  fileUrl: string;
-  size?: number;
-  uploaderName?: string;
-  uploaderEmail?: string;
-  organization?: string;
+  status: FileStatus;
 }

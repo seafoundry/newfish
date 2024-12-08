@@ -1,29 +1,35 @@
 "use server";
 
 import { currentUser } from "@clerk/nextjs/server";
-import { listUserFiles } from "../lib/aws";
+import { PrismaClient } from "@prisma/client";
 import { FileData } from "../types/files";
 
+const prisma = new PrismaClient();
+
 export async function getUserFiles(): Promise<FileData[]> {
-  const user = await currentUser();
+  const clerkUser = await currentUser();
+
+  const user = await prisma.user.findUnique({
+    where: {
+      clerkUserId: clerkUser?.id,
+    },
+  });
 
   if (!user) {
     throw new Error("Unauthorized");
   }
 
-  try {
-    const s3Files = await listUserFiles(user.id);
+  const fileUploads = await prisma.fileUpload.findMany({
+    where: {
+      userId: user.id,
+    },
+  });
 
-    return s3Files.map((file) => ({
-      id: file.Key || "",
-      fileName: file.Key?.split("/").pop() || "",
-      category: file.Key?.split("/")[2] || "Uncategorized",
-      uploadDate: file.LastModified?.toISOString().split("T")[0] || "",
-      fileUrl: file.Key || "",
-      size: file.Size,
-    }));
-  } catch (error) {
-    console.error("Error fetching user files:", error);
-    throw new Error("Failed to fetch files");
-  }
+  return fileUploads.map((file) => ({
+    id: file.id,
+    fileName: file.fileName,
+    category: file.category,
+    uploadDate: file.createdAt.toISOString().split("T")[0],
+    status: file.status,
+  }));
 }
