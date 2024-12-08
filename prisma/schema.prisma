@@ -8,12 +8,13 @@ datasource db {
 }
 
 model User {
-  id          String       @id @default(cuid())
-  clerkUserId String       @unique
-  email       String       @unique
-  fileUploads FileUpload[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id             String           @id @default(cuid())
+  clerkUserId    String           @unique
+  email          String           @unique
+  fileUploads    FileUpload[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  GeneticMapping GeneticMapping[]
 }
 
 model FileUpload {
@@ -59,6 +60,19 @@ model GeneticsRow {
   additionalData   Json
 
   @@index([fileUploadId])
+}
+
+model GeneticMapping {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  localGenetId    String
+  externalGenetId String
+  createdAt       DateTime @default(now())
+
+  @@index([localGenetId])
+  @@index([externalGenetId])
 }
 
 model NurseryFile {
@@ -147,6 +161,7 @@ enum FileStatus {
 
 enum FileCategory {
   Genetics
+  GeneticsMapping
   Nursery
   Outplanting
   Monitoring

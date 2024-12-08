@@ -86,12 +86,13 @@ model OutplantingFile {
 }
 
 model User {
-  id          String       @id
-  email       String       @unique
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime
-  clerkUserId String       @unique
-  FileUpload  FileUpload[]
+  id             String           @id
+  email          String           @unique
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  clerkUserId    String           @unique
+  FileUpload     FileUpload[]
+  GeneticMapping GeneticMapping[]
 }
 
 model GeneticsRow {
@@ -137,11 +138,24 @@ model OutplantingRow {
   @@index([fileUploadId])
 }
 
+model GeneticMapping {
+  id              String   @id
+  localGenetId    String
+  externalGenetId String
+  createdAt       DateTime @default(now())
+  userId          String
+  User            User     @relation(fields: [userId], references: [id])
+
+  @@index([externalGenetId])
+  @@index([localGenetId])
+}
+
 enum FileCategory {
   Genetics
   Nursery
   Outplanting
   Monitoring
+  GeneticsMapping
 }
 
 enum FileStatus {

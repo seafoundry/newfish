@@ -83,6 +83,8 @@ export async function getSignedUrl(
       };
 
       switch (category) {
+        case "GeneticsMapping":
+          break;
         case "Genetics":
           console.log("inside of switch, baseData:", baseData);
           await tx.geneticsFile.create({ data: baseData });

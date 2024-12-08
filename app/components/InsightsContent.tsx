@@ -1,6 +1,7 @@
 "use client";
 
 import { getInsights } from "@/app/actions/getInsights";
+import { getGeneticMappings } from "@/app/actions/getGeneticMappings";
 import { Tab } from "@headlessui/react";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/20/solid";
 import { useEffect, useState } from "react";
@@ -12,13 +13,20 @@ type NurseryInventory = {
     genotypes: {
       id: string;
       quantity: number;
+      mappedGenotypes?: string[];
     }[];
   }[];
   genotypeDistribution: {
     id: string;
     totalQuantity: number;
     nurseryPresence: string[];
+    mappedGenotypes?: string[];
   }[];
+};
+
+type GeneticMapping = {
+  localGenotype: string;
+  foreignGenotype: string;
 };
 
 type SortConfig = {
@@ -28,6 +36,7 @@ type SortConfig = {
 
 export default function InsightsContent() {
   const [data, setData] = useState<NurseryInventory | null>(null);
+  const [mappings, setMappings] = useState<GeneticMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "",
@@ -36,8 +45,15 @@ export default function InsightsContent() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    getInsights()
-      .then(setData)
+    Promise.all([getInsights(), getGeneticMappings().catch(() => [])])
+      .then(([insightsData, mappingsData]) => {
+        setData(insightsData);
+        const transformedMappings = mappingsData.map((m) => ({
+          localGenotype: m.localGenetId,
+          foreignGenotype: m.externalGenetId,
+        }));
+        setMappings(transformedMappings);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -66,6 +82,21 @@ export default function InsightsContent() {
           ? "desc"
           : "asc",
     });
+  };
+
+  const getMappedIds = (genotypeId: string) => {
+    return mappings
+      .filter((m) => m.localGenotype === genotypeId)
+      .map((m) => m.foreignGenotype);
+  };
+
+  const filterGenotype = (genotypeId: string) => {
+    const searchLower = searchTerm.toLowerCase();
+    const mappedIds = getMappedIds(genotypeId);
+    return (
+      genotypeId.toLowerCase().includes(searchLower) ||
+      mappedIds.some((id) => id.toLowerCase().includes(searchLower))
+    );
   };
 
   const SortableHeader = ({
@@ -100,6 +131,23 @@ export default function InsightsContent() {
       </div>
     </th>
   );
+
+  const GenotypeCell = ({ id }: { id: string }) => {
+    const mappedIds = getMappedIds(id);
+    return (
+      <td className="px-4 py-2 font-mono group relative">
+        {id}
+        {mappedIds.length > 0 && (
+          <>
+            <span className="ml-2 text-blue-500 cursor-help">★</span>
+            <div className="hidden group-hover:block absolute z-10 bg-gray-800 text-white p-2 rounded shadow-lg text-sm">
+              Mapped IDs: {mappedIds.join(", ")}
+            </div>
+          </>
+        )}
+      </td>
+    );
+  };
 
   if (loading) return <div>Loading...</div>;
   if (!data) return <div>No data available</div>;
@@ -158,17 +206,11 @@ export default function InsightsContent() {
                   <tbody className="divide-y divide-gray-200">
                     {data.nurseries.flatMap((nursery) =>
                       sortData(nursery.genotypes, sortConfig.key)
-                        .filter((genotype) =>
-                          genotype.id
-                            .toLowerCase()
-                            .includes(searchTerm.toLowerCase())
-                        )
+                        .filter((genotype) => filterGenotype(genotype.id))
                         .map((genotype) => (
                           <tr key={`${nursery.name}-${genotype.id}`}>
                             <td className="px-4 py-2">{nursery.name}</td>
-                            <td className="px-4 py-2 font-mono">
-                              {genotype.id}
-                            </td>
+                            <GenotypeCell id={genotype.id} />
                             <td className="px-4 py-2">{genotype.quantity}</td>
                           </tr>
                         ))
@@ -199,14 +241,10 @@ export default function InsightsContent() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {sortData(data.genotypeDistribution, sortConfig.key)
-                      .filter((genotype) =>
-                        genotype.id
-                          .toLowerCase()
-                          .includes(searchTerm.toLowerCase())
-                      )
+                      .filter((genotype) => filterGenotype(genotype.id))
                       .map((genotype) => (
                         <tr key={genotype.id}>
-                          <td className="px-4 py-2 font-mono">{genotype.id}</td>
+                          <GenotypeCell id={genotype.id} />
                           <td className="px-4 py-2">
                             {genotype.totalQuantity}
                           </td>

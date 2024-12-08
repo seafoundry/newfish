@@ -94,6 +94,21 @@ export async function handler(event: S3Event, context: Context) {
     });
 
     switch (category) {
+      case "GeneticsMapping":
+        await prisma.$transaction(async (tx) => {
+          await tx.geneticMapping.createMany({
+            data: records.map((record: Record<string, string>) => {
+              const columns = Object.values(record);
+              return {
+                id: randomUUID(),
+                userId: user.id,
+                localGenetId: columns[0],
+                externalGenetId: columns[1],
+              };
+            }),
+          });
+        });
+        break;
       case "Genetics":
         await prisma.$transaction(async (tx) => {
           const file = await tx.geneticsFile.findUnique({

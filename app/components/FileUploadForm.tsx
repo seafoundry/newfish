@@ -70,6 +70,7 @@ interface FormData {
   coordinates: string;
   eventId: string;
   file: File | null;
+  mappingFile?: File | null;
 }
 
 const InputField = ({
@@ -117,6 +118,7 @@ export default function FileUploadForm() {
     coordinates: "",
     eventId: "",
     file: null,
+    mappingFile: null,
   });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -209,6 +211,23 @@ export default function FileUploadForm() {
         throw new Error("Failed to upload file");
       }
 
+      if (category === "Genetics" && formData.mappingFile) {
+        const mappingSignedUrl = await getSignedUrl(
+          formData.mappingFile.name,
+          formData.mappingFile.type,
+          "GeneticsMapping",
+          metadata
+        );
+
+        await fetch(mappingSignedUrl, {
+          method: "PUT",
+          body: formData.mappingFile,
+          headers: {
+            "Content-Type": formData.mappingFile.type,
+          },
+        });
+      }
+
       setFormData({
         name: "",
         email: "",
@@ -221,6 +240,7 @@ export default function FileUploadForm() {
         coordinates: "",
         eventId: "",
         file: null,
+        mappingFile: null,
       });
       setCategory("");
 
@@ -341,6 +361,49 @@ export default function FileUploadForm() {
               onChange={handleInputChange}
             />
           </>
+        )}
+
+        {category === "Genetics" && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700">
+              Mapping File (Optional)
+            </label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  if (!file.name.toLowerCase().endsWith(".csv")) {
+                    setUploadError("Mapping file must be a CSV file");
+                    e.target.value = "";
+                    return;
+                  }
+                  Papa.parse(file, {
+                    header: false,
+                    preview: 1,
+                    complete: (results) => {
+                      const data = results.data as unknown[][];
+                      if (data[0].length !== 2) {
+                        setUploadError(
+                          "Mapping file must have exactly 2 columns"
+                        );
+                        e.target.value = "";
+                        return;
+                      }
+                      setFormData((prev) => ({ ...prev, mappingFile: file }));
+                      setUploadError(null);
+                    },
+                  });
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              CSV format: 2 columns - First column: Your genotype names, Second
+              column: Other organization&apos;s corresponding genotype names
+            </p>
+          </div>
         )}
 
         <div className="mt-4">
