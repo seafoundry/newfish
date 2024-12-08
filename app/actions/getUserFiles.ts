@@ -17,7 +17,7 @@ export async function getUserFiles(): Promise<FileData[]> {
     return s3Files.map((file) => ({
       id: file.Key || "",
       fileName: file.Key?.split("/").pop() || "",
-      category: file.Key?.split("/")[0] || "Uncategorized",
+      category: file.Key?.split("/")[2] || "Uncategorized",
       uploadDate: file.LastModified?.toISOString().split("T")[0] || "",
       fileUrl: file.Key || "",
       size: file.Size,
