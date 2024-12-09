@@ -1,8 +1,22 @@
+import { currentUser } from "@clerk/nextjs/server";
+import { PrismaClient } from "@prisma/client";
 import { getUserFiles } from "../actions/getUserFiles";
 import FileBrowser from "../components/FileBrowser";
 import FileUploadForm from "../components/FileUploadForm";
+import LoadingUser from "../components/LoadingUser";
+
+const prisma = new PrismaClient();
 
 export default async function Dashboard() {
+  const clerkUser = await currentUser();
+  const user = await prisma.user.findUnique({
+    where: { clerkUserId: clerkUser?.id },
+  });
+
+  if (!user) {
+    return <LoadingUser />;
+  }
+
   const files = await getUserFiles();
 
   return (
