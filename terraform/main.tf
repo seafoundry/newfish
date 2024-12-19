@@ -6,7 +6,11 @@ terraform {
     }
   }
 
-  backend "s3" {}
+  backend "s3" {
+    bucket = "newfish-terraform-state"
+    key    = "newfish/terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 provider "aws" {
