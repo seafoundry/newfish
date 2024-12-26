@@ -51,3 +51,18 @@ export interface FileData {
   uploadDate: string;
   status: FileStatus;
 }
+
+export type OutplantResponse = {
+  id: string;
+  coordinates: string;
+  contact: string;
+  date: string;
+  reefName: string;
+  siteName: string;
+  genetics: Genetic[];
+};
+
+export interface Genetic {
+  genotype: string;
+  quantity: number;
+}
