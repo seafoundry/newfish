@@ -3,7 +3,7 @@
 import "mapbox-gl/dist/mapbox-gl.css"; // this took me a while to figure out!
 import { useState } from "react";
 import { Map, Marker, NavigationControl, Popup } from "react-map-gl";
-import parseCoralId from "../lib/coral";
+import { listAllSpecies, parseCoralId } from "../lib/coral";
 import { Genetic, OutplantResponse } from "../types/files";
 
 const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
@@ -18,24 +18,52 @@ const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
   );
 };
 
-const organizations = [
-  "All Organizations",
-  "Mote Marine Laboratory",
-  "Coral Restoration Foundation",
-  "Florida Keys National Marine Sanctuary",
-];
-
-const species = [
-  "All Species",
-  "Acropora cervicornis",
-  "Acropora palmata",
-  "Orbicella faveolata",
-];
+const species = ["All Species", ...listAllSpecies()];
 
 export default function OutplantInteractiveMap(props: {
   outplants: OutplantResponse[];
 }) {
   const [popupInfo, setPopupInfo] = useState<OutplantResponse | null>(null);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [selectedOrg, setSelectedOrg] = useState<string>("All Organizations");
+  const [selectedSpecies, setSelectedSpecies] = useState<string>("All Species");
+
+  const organizations = [
+    "All Organizations",
+    ...new Set(props.outplants.map((o) => o.contact)),
+  ];
+
+  const filteredOutplants = props.outplants.filter((outplant) => {
+    const outplantDate = new Date(outplant.date);
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    const dateMatch =
+      start && end
+        ? outplantDate >= start && outplantDate <= end
+        : start
+        ? outplantDate >= start
+        : end
+        ? outplantDate <= end
+        : true;
+
+    const orgMatch =
+      selectedOrg === "All Organizations" || outplant.contact === selectedOrg;
+
+    const speciesMatch =
+      selectedSpecies === "All Species" ||
+      outplant.genetics.some((genetic) => {
+        try {
+          const species = parseCoralId(genetic.genotype);
+          return species === selectedSpecies;
+        } catch {
+          return false;
+        }
+      });
+
+    return dateMatch && orgMatch && speciesMatch;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -50,6 +78,9 @@ export default function OutplantInteractiveMap(props: {
                 </label>
                 <input
                   type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  max={endDate || undefined}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
@@ -59,6 +90,9 @@ export default function OutplantInteractiveMap(props: {
                 </label>
                 <input
                   type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || undefined}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
@@ -66,7 +100,11 @@ export default function OutplantInteractiveMap(props: {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Organization
                 </label>
-                <select className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <select
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  value={selectedOrg}
+                  onChange={(e) => setSelectedOrg(e.target.value)}
+                >
                   {organizations.map((org) => (
                     <option key={org} value={org}>
                       {org}
@@ -78,7 +116,11 @@ export default function OutplantInteractiveMap(props: {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Species
                 </label>
-                <select className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <select
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  value={selectedSpecies}
+                  onChange={(e) => setSelectedSpecies(e.target.value)}
+                >
                   {species.map((species) => (
                     <option key={species} value={species}>
                       {species}
@@ -101,7 +143,7 @@ export default function OutplantInteractiveMap(props: {
               mapStyle="mapbox://styles/mapbox/streets-v9"
             >
               <NavigationControl position="top-right" />
-              {props.outplants.map((outplant) => (
+              {filteredOutplants.map((outplant) => (
                 <Marker
                   key={outplant.id}
                   longitude={Number(outplant.coordinates.trim().split(",")[0])}
@@ -121,7 +163,7 @@ export default function OutplantInteractiveMap(props: {
                   latitude={Number(popupInfo.coordinates.trim().split(",")[1])}
                   anchor="top"
                   onClose={() => setPopupInfo(null)}
-                  style={{ maxWidth: "400px" }} // Make popup wider
+                  style={{ maxWidth: "400px" }}
                 >
                   <div className="p-4 font-sans" style={{ width: "320px" }}>
                     <h3 className="text-lg font-bold text-gray-800 mb-3">

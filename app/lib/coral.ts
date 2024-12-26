@@ -48,7 +48,7 @@ const speciesMap: SpeciesMapping = {
   UN: "unknown unknown",
 };
 
-function parseCoralId(id: string): string {
+export function parseCoralId(id: string): string {
   id = id.trim().toUpperCase();
   const format = /^([A-Z]{2})(\d+)$/;
   const match = id.match(format);
@@ -63,4 +63,6 @@ function parseCoralId(id: string): string {
   return speciesName;
 }
 
-export default parseCoralId;
+export function listAllSpecies(): string[] {
+  return Object.values(speciesMap);
+}

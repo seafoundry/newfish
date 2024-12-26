@@ -17,13 +17,7 @@ export default async function getOutplants() {
 
     if (!user) throw new Error("User not found");
 
-    const outplantFiles = await prisma.outplantingFile.findMany({
-      where: {
-        fileUpload: {
-          userId: user.id,
-        },
-      },
-    });
+    const outplantFiles = await prisma.outplantingFile.findMany({});
 
     const outplants: OutplantResponse[] = [];
 
