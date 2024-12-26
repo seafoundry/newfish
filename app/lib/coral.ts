@@ -63,6 +63,17 @@ export function parseCoralId(id: string): string {
   return speciesName;
 }
 
+export function splitSpeciesName(fullName: string): {
+  genus: string;
+  species: string;
+} {
+  const [genus, ...speciesParts] = fullName.split(" ");
+  return {
+    genus,
+    species: speciesParts.join(" "),
+  };
+}
+
 export function listAllSpecies(): string[] {
   return Object.values(speciesMap);
 }

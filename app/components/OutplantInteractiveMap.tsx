@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Map, Marker, NavigationControl, Popup } from "react-map-gl";
 import { listAllSpecies, parseCoralId } from "../lib/coral";
 import { Genetic, OutplantResponse } from "../types/files";
+import OutplantDetailedTable from "./OutplantDetailedTable";
 
 const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
   return Object.values(
@@ -229,6 +230,8 @@ export default function OutplantInteractiveMap(props: {
             </Map>
           </div>
         </div>
+
+        <OutplantDetailedTable outplants={filteredOutplants} />
       </main>
     </div>
   );
