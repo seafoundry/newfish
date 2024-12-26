@@ -3,6 +3,7 @@
 import "mapbox-gl/dist/mapbox-gl.css"; // this took me a while to figure out!
 import { useState } from "react";
 import { Map, Marker, NavigationControl, Popup } from "react-map-gl";
+import parseCoralId from "../lib/coral";
 import { Genetic, OutplantResponse } from "../types/files";
 
 const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
@@ -152,10 +153,19 @@ export default function OutplantInteractiveMap(props: {
                         {mergeGenetics(popupInfo.genetics).map((genetic) => (
                           <div
                             key={genetic.genotype}
-                            className="flex justify-between text-sm"
+                            className="flex items-center justify-between text-sm py-1"
                           >
-                            <span className="mr-4">{genetic.genotype}</span>
-                            <span>{genetic.quantity} corals</span>
+                            <div className="flex flex-col">
+                              <span className="text-gray-900">
+                                {parseCoralId(genetic.genotype)}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ID: {genetic.genotype}
+                              </span>
+                            </div>
+                            <span className="ml-2 whitespace-nowrap">
+                              {genetic.quantity} colonies
+                            </span>
                           </div>
                         ))}
                       </div>
