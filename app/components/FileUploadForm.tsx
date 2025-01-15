@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { getSignedUrl } from "@/app/actions/getSignedUrl";
 import { FileCategory } from "@/app/types/files";
+import { formatDistanceToNow } from "date-fns";
+import { useRouter } from "next/navigation";
 import Papa from "papaparse";
+import { useCallback, useEffect, useState } from "react";
+import { getOutplantingEvents } from "../actions/getOutplantingEvents";
+import { getOutplantingSignedURLs } from "../actions/getOutplantingSignedURLs";
 
 const categories: FileCategory[] = [
   "Genetics",
@@ -73,6 +76,23 @@ interface FormData {
   mappingFile?: File | null;
 }
 
+type OutplantingEvent = {
+  id: string;
+  outplantingFileId: string | null;
+  createdAt: Date;
+  status: string;
+  metadata: {
+    reefName: string;
+    siteName: string;
+    eventName: string;
+  };
+};
+
+type SignedURL = {
+  name: string;
+  url: string;
+};
+
 const InputField = ({
   label,
   type = "text",
@@ -122,6 +142,11 @@ export default function FileUploadForm() {
   });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [outplantingEvents, setOutplantingEvents] = useState<
+    OutplantingEvent[]
+  >([]);
+  const [signedUrls, setSignedUrls] = useState<SignedURL[]>([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,6 +282,24 @@ export default function FileUploadForm() {
     }
   };
 
+  useEffect(() => {
+    if (category === "Monitoring") {
+      setIsLoadingFiles(true);
+      Promise.all([getOutplantingEvents(), getOutplantingSignedURLs()])
+        .then(([events, urls]) => {
+          setOutplantingEvents(events);
+          setSignedUrls(urls);
+        })
+        .catch((error) => {
+          console.error("Failed to load files:", error);
+          setUploadError("Failed to load outplanting files");
+        })
+        .finally(() => {
+          setIsLoadingFiles(false);
+        });
+    }
+  }, [category]);
+
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
       <h2 className="text-xl font-semibold mb-6">Upload New File</h2>
@@ -354,12 +397,90 @@ export default function FileUploadForm() {
               value={formData.coordinates}
               onChange={handleInputChange}
             />
-            <InputField
-              label="Event ID"
-              name="eventId"
-              value={formData.eventId}
-              onChange={handleInputChange}
-            />
+            {outplantingEvents.length > 0 ? (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  Event ID <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="eventId"
+                  value={formData.eventId}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      eventId: e.target.value,
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select an outplanting event</option>
+                  {outplantingEvents.map((event) => (
+                    <option
+                      key={event.id}
+                      value={event.outplantingFileId || ""}
+                      className="py-2"
+                    >
+                      {event.metadata.eventName} - {event.metadata.reefName} (
+                      {formatDistanceToNow(new Date(event.createdAt), {
+                        addSuffix: true,
+                      })}
+                      ){event.status !== "completed" && ` - ${event.status}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+                <p className="text-amber-800 font-medium text-center">
+                  🌊 Looks like we need some coral history! Please upload an
+                  outplanting event first to start monitoring.
+                </p>
+              </div>
+            )}
+            <div className="mt-4">
+              {isLoadingFiles ? (
+                <div className="p-4 bg-gray-50 rounded-md text-center">
+                  <p className="text-gray-600">Loading available files...</p>
+                </div>
+              ) : signedUrls.length > 0 ? (
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Available Files:
+                  </h4>
+                  <div className="space-y-2">
+                    {signedUrls.map((file) => (
+                      <div
+                        key={file.name}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span className="text-gray-600">{file.name}</span>
+                        <a
+                          href={file.url}
+                          download
+                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          Download
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-gray-500 italic">
+                    These are the original outplanting files you can reference
+                    for monitoring
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <p className="text-gray-600 text-center">
+                    No outplanting files available for download
+                  </p>
+                </div>
+              )}
+            </div>
           </>
         )}
 

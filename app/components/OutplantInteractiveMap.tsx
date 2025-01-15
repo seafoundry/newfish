@@ -9,13 +9,16 @@ import OutplantDetailedTable from "./OutplantDetailedTable";
 
 const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
   return Object.values(
-    genetics.reduce<Record<string, Genetic>>((acc, { genotype, quantity }) => {
-      if (!acc[genotype]) {
-        acc[genotype] = { genotype, quantity: 0 };
-      }
-      acc[genotype].quantity += quantity;
-      return acc;
-    }, {})
+    genetics.reduce<Record<string, Genetic>>(
+      (acc, { genotype, quantity, assessionId }) => {
+        if (!acc[genotype]) {
+          acc[genotype] = { genotype, quantity: 0, assessionId };
+        }
+        acc[genotype].quantity += quantity;
+        return acc;
+      },
+      {}
+    )
   );
 };
 

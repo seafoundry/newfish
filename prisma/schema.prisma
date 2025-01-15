@@ -15,6 +15,7 @@ model User {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   GeneticMapping GeneticMapping[]
+  AccessionGenet AccessionGenet[]
 }
 
 model FileUpload {
@@ -22,6 +23,7 @@ model FileUpload {
   userId       String
   user         User         @relation(fields: [userId], references: [id])
   fileName     String
+  fileS3Name   String?
   mimeType     String
   category     FileCategory
   status       FileStatus   @default(PENDING)
@@ -149,6 +151,18 @@ model MonitoringRow {
   additionalData Json
 
   @@index([fileUploadId])
+}
+
+model AccessionGenet {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  genetId     String
+  accessionId String
+  createdAt   DateTime @default(now())
+
+  @@index([accessionId])
+  @@index([genetId])
 }
 
 enum FileStatus {

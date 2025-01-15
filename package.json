@@ -18,6 +18,8 @@
     "@heroicons/react": "^2.2.0",
     "@prisma/client": "^5.22.0",
     "chart.js": "^4.4.6",
+    "csv-parse": "^5.6.0",
+    "date-fns": "^4.1.0",
     "mapbox-gl": "^1.13.3",
     "next": "14.2.13",
     "papaparse": "^5.4.1",
@@ -41,5 +43,8 @@
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }

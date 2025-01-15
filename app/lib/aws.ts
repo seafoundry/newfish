@@ -1,4 +1,5 @@
 import {
+  GetObjectCommand,
   ListObjectsV2Command,
   PutBucketCorsCommand,
   PutObjectCommand,
@@ -16,11 +17,30 @@ const s3Client = new S3Client({
 
 const BUCKET_NAME = process.env.AWS_BUCKET_NAME || "newfish-dev-uploads";
 
+export async function createSignedDownloadUrl(key: string) {
+  try {
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+    });
+
+    const signedUrl = await getAwsSignedUrl(s3Client, command, {
+      expiresIn: 3600,
+    });
+
+    return signedUrl;
+  } catch (error) {
+    console.error("Error creating signed URL:", error);
+    throw new Error("Failed to create download URL");
+  }
+}
+
 export async function createSignedUploadUrl(
   userId: string,
   fileName: string,
   fileType: string,
-  category: string
+  category: string,
+  metadata?: Record<string, string>
 ): Promise<string> {
   try {
     const timestamp = new Date().getTime();
@@ -30,6 +50,7 @@ export async function createSignedUploadUrl(
       Bucket: BUCKET_NAME,
       Key: key,
       ContentType: fileType,
+      Metadata: metadata,
     });
 
     const signedUrl = await getAwsSignedUrl(s3Client, command, {
@@ -40,6 +61,29 @@ export async function createSignedUploadUrl(
   } catch (error) {
     console.error("Error creating signed URL:", error);
     throw new Error("Failed to create upload URL");
+  }
+}
+
+export async function listUserFilesInSubFolder(
+  userId: string,
+  subFolder: string
+) {
+  try {
+    const command = new ListObjectsV2Command({
+      Bucket: BUCKET_NAME,
+      Prefix: `users/${userId}/${subFolder}`,
+    });
+
+    const response = await s3Client.send(command);
+    const contents = response.Contents || [];
+
+    return contents.filter((file) => {
+      const key = file.Key || "";
+      return !key.includes("/invalid/");
+    });
+  } catch (error) {
+    console.error("Error listing files:", error);
+    throw new Error("Failed to list files");
   }
 }
 

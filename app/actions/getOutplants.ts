@@ -20,6 +20,11 @@ export default async function getOutplants() {
     const outplantFiles = await prisma.outplantingFile.findMany({});
 
     const outplants: OutplantResponse[] = [];
+    const assessionGenets = await prisma.accessionGenet.findMany({
+      where: {
+        userId: user.id,
+      },
+    });
 
     for (const outplant of outplantFiles) {
       const responseData = {
@@ -44,6 +49,9 @@ export default async function getOutplants() {
         genetics.push({
           genotype: row.genetId,
           quantity: row.quantity,
+          assessionId:
+            assessionGenets.find((genet) => genet.genetId === row.genetId)
+              ?.accessionId || "None",
         });
       }
 

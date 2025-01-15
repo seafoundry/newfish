@@ -21,7 +21,7 @@ export default function OutplantDetailedTable(props: {
         genus: speciesInfo.genus,
         species: speciesInfo.species,
         genotype: genetic.genotype,
-        accessionNumber: "N/A", // Not available in current data
+        accessionNumber: genetic.assessionId,
         colonies: genetic.quantity,
         date: new Date(outplant.date).toLocaleDateString(),
         submitter: outplant.contact,

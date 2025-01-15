@@ -65,4 +65,5 @@ export type OutplantResponse = {
 export interface Genetic {
   genotype: string;
   quantity: number;
+  assessionId: string;
 }
