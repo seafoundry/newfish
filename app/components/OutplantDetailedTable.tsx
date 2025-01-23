@@ -74,7 +74,16 @@ export default function OutplantDetailedTable(props: {
                         {row.genotype}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {row.accessionNumber}
+                        {row.accessionNumber !== "None" ? (
+                          <a
+                            href={`https://www.crfcoralregistry.com/#main/3/registry/edit?id=${row.accessionNumber}`}
+                            className="text-blue-500"
+                          >
+                            {row.accessionNumber}
+                          </a>
+                        ) : (
+                          row.accessionNumber
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         {row.colonies}
