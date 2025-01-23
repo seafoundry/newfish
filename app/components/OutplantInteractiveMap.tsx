@@ -6,6 +6,7 @@ import { Map, Marker, NavigationControl, Popup } from "react-map-gl";
 import { listAllSpecies, parseCoralId } from "../lib/coral";
 import { Genetic, OutplantResponse } from "../types/files";
 import OutplantDetailedTable from "./OutplantDetailedTable";
+import { generatePDF } from "./ReportGenerator";
 
 const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
   return Object.values(
@@ -74,7 +75,15 @@ export default function OutplantInteractiveMap(props: {
       <main className="p-4">
         <div className="max-w-7xl mx-auto space-y-4">
           <div className="bg-white rounded-lg shadow-sm p-4">
-            <h2 className="text-lg font-semibold mb-4">Filter Outplants</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Filter Outplants</h2>
+              <button
+                onClick={() => generatePDF(filteredOutplants)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Generate Report
+              </button>
+            </div>
             <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -109,20 +109,19 @@ export async function handler(event: S3Event, context: Context) {
         });
         break;
       case "Genetics":
-        await prisma.$transaction(async (tx) => {
-          const file = await tx.geneticsFile.findUnique({
-            where: { fileUploadId: fileUpload.id },
-          });
+        const geneticsFile = await prisma.geneticsFile.findUnique({
+          where: { fileUploadId: fileUpload.id },
+        });
 
-          if (!file) {
-            console.log(
-              `Can't find genetics file for fileUploadId: ${fileUpload.id}`
-            );
-            throw new Error("Genetics file not found");
-          }
+        if (!geneticsFile) {
+          console.log(
+            `Can't find genetics file for fileUploadId: ${fileUpload.id}`
+          );
+          throw new Error("Genetics file not found");
+        }
 
-          // ONLY ONE SOURCE OF TRUTH FOR GENETICS AND NURSERY
-          await tx.geneticsRow.deleteMany({
+        await prisma.$transaction([
+          prisma.geneticsRow.deleteMany({
             where: {
               GeneticsFile: {
                 FileUpload: {
@@ -130,9 +129,8 @@ export async function handler(event: S3Event, context: Context) {
                 },
               },
             },
-          });
-
-          await tx.geneticsRow.createMany({
+          }),
+          prisma.geneticsRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
               const localIdGenetProp = record["Local ID/Genet Propagation"];
@@ -145,30 +143,30 @@ export async function handler(event: S3Event, context: Context) {
 
               return {
                 id: randomUUID(),
-                fileUploadId: file.id,
+                fileUploadId: geneticsFile.id,
                 localIdGenetProp,
                 accessionNumber,
                 additionalData,
               } as GeneticsRow;
             }),
-          });
-        });
+          }),
+        ]);
         break;
       case "Nursery":
-        await prisma.$transaction(async (tx) => {
-          const file = await tx.nurseryFile.findUnique({
-            where: { fileUploadId: fileUpload.id },
-          });
+        const nurseryFile = await prisma.nurseryFile.findUnique({
+          where: { fileUploadId: fileUpload.id },
+        });
 
-          if (!file) {
-            console.log(
-              `Can't find nursery file for fileUploadId: ${fileUpload.id}`
-            );
-            throw new Error("Nursery file not found");
-          }
+        if (!nurseryFile) {
+          console.log(
+            `Can't find nursery file for fileUploadId: ${fileUpload.id}`
+          );
+          throw new Error("Nursery file not found");
+        }
 
-          // ONLY ONE SOURCE OF TRUTH FOR GENETICS AND NURSERY
-          await tx.nurseryRow.deleteMany({
+        // Delete and create in a single transaction
+        await prisma.$transaction([
+          prisma.nurseryRow.deleteMany({
             where: {
               NurseryFile: {
                 FileUpload: {
@@ -176,9 +174,8 @@ export async function handler(event: S3Event, context: Context) {
                 },
               },
             },
-          });
-
-          await tx.nurseryRow.createMany({
+          }),
+          prisma.nurseryRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
               const localIdGenetProp = record["Genotype"];
@@ -193,15 +190,15 @@ export async function handler(event: S3Event, context: Context) {
 
               return {
                 id: randomUUID(),
-                fileUploadId: file.id,
+                fileUploadId: nurseryFile.id,
                 genetId: localIdGenetProp,
                 quantity,
                 nursery,
                 additionalData,
               } as NurseryRow;
             }),
-          });
-        });
+          }),
+        ]);
         break;
       case "Outplanting":
         await prisma.$transaction(async (tx) => {
