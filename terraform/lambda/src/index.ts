@@ -47,15 +47,14 @@ export async function handler(event: S3Event, context: Context) {
     const pathParts = key.split("/");
     const clerkUserId = pathParts[1];
 
+    const fullFileName = pathParts[pathParts.length - 1];
+    const fileName = fullFileName.split("-").slice(1).join("-");
+
     const user = await prisma.user.findFirst({ where: { clerkUserId } });
     if (!user) {
       throw new Error(`User not found for clerkUserId: ${clerkUserId}`);
     }
 
-    const fileName = pathParts[pathParts.length - 1].split("-").pop();
-    if (!fileName) {
-      throw new Error("Could not extract filename from key: " + key);
-    }
     console.log("fileName:", fileName);
 
     const fileUploads = await prisma.fileUpload.findMany({
@@ -253,6 +252,7 @@ export async function handler(event: S3Event, context: Context) {
         status: "COMPLETED",
         processedAt: new Date(),
         updatedAt: new Date(),
+        fileName: fullFileName,
       },
     });
   } finally {

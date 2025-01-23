@@ -89,6 +89,7 @@ type OutplantingEvent = {
 };
 
 type SignedURL = {
+  fileId: string;
   name: string;
   url: string;
 };
@@ -443,15 +444,16 @@ export default function FileUploadForm() {
                 <div className="p-4 bg-gray-50 rounded-md text-center">
                   <p className="text-gray-600">Loading available files...</p>
                 </div>
-              ) : signedUrls.length > 0 ? (
+              ) : formData.eventId ? (
                 <div className="p-4 bg-gray-50 rounded-md">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Available Files:
+                    Selected Event File:
                   </h4>
-                  <div className="space-y-2">
-                    {signedUrls.map((file) => (
+                  {signedUrls
+                    .filter((url) => url.fileId === formData.eventId)
+                    .map((file) => (
                       <div
-                        key={file.name}
+                        key={file.fileId}
                         className="flex items-center justify-between text-sm"
                       >
                         <span className="text-gray-600">{file.name}</span>
@@ -463,20 +465,19 @@ export default function FileUploadForm() {
                             e.stopPropagation();
                           }}
                         >
-                          Download
+                          Download Original File
                         </a>
                       </div>
                     ))}
-                  </div>
                   <p className="mt-3 text-xs text-gray-500 italic">
-                    These are the original outplanting files you can reference
-                    for monitoring
+                    This is the original outplanting file you can reference for
+                    monitoring
                   </p>
                 </div>
               ) : (
                 <div className="p-4 bg-gray-50 rounded-md">
                   <p className="text-gray-600 text-center">
-                    No outplanting files available for download
+                    Select an outplanting event to view its file
                   </p>
                 </div>
               )}

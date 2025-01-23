@@ -18,7 +18,11 @@ resource "aws_iam_user_policy" "deploy_policy" {
         Action = [
           "lambda:*",
           "s3:*",
-          "iam:*",
+          "iam:GetUser",
+          "iam:CreateAccessKey",
+          "iam:DeleteAccessKey",
+          "iam:ListAccessKeys",
+          "iam:UpdateAccessKey",
           "logs:*",
           "cloudwatch:*"
         ]
@@ -27,7 +31,8 @@ resource "aws_iam_user_policy" "deploy_policy" {
           aws_s3_bucket.uploads.arn,
           "${aws_s3_bucket.uploads.arn}/*",
           aws_iam_role.lambda_role.arn,
-          "arn:aws:logs:${var.aws_region}:*:*"
+          "arn:aws:logs:${var.aws_region}:*:*",
+          "arn:aws:iam::*:user/${aws_iam_user.deploy_user.name}"
         ]
       },
       {
