@@ -121,6 +121,17 @@ export async function handler(event: S3Event, context: Context) {
             throw new Error("Genetics file not found");
           }
 
+          // ONLY ONE SOURCE OF TRUTH FOR GENETICS AND NURSERY
+          await tx.geneticsRow.deleteMany({
+            where: {
+              GeneticsFile: {
+                FileUpload: {
+                  userId: user.id,
+                },
+              },
+            },
+          });
+
           await tx.geneticsRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
@@ -155,6 +166,17 @@ export async function handler(event: S3Event, context: Context) {
             );
             throw new Error("Nursery file not found");
           }
+
+          // ONLY ONE SOURCE OF TRUTH FOR GENETICS AND NURSERY
+          await tx.nurseryRow.deleteMany({
+            where: {
+              NurseryFile: {
+                FileUpload: {
+                  userId: user.id,
+                },
+              },
+            },
+          });
 
           await tx.nurseryRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

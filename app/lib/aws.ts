@@ -15,7 +15,7 @@ const s3Client = new S3Client({
   },
 });
 
-const BUCKET_NAME = process.env.AWS_BUCKET_NAME || "newfish-dev-uploads";
+const BUCKET_NAME = process.env.BUCKET_NAME || "newfish-dev-uploads";
 
 export async function createSignedDownloadUrl(key: string) {
   try {

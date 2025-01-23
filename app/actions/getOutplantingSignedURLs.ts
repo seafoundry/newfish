@@ -30,7 +30,7 @@ export async function getOutplantingSignedURLs() {
 
   const signedUrls = await Promise.all(
     outplantingFiles.map(async (file) => {
-      const key = `${process.env.BUCKET_NAME}/users/${clerkUser.id}/Outplanting/${file.fileUpload.fileName}`;
+      const key = `users/${clerkUser.id}/Outplanting/${file.fileUpload.fileName}`;
       const url = await createSignedDownloadUrl(key);
       return {
         fileId: file.id,

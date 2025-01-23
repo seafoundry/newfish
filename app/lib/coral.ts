@@ -50,12 +50,35 @@ const speciesMap: SpeciesMapping = {
 
 export function parseCoralId(id: string): string {
   id = id.trim().toUpperCase();
-  const format = /^([A-Z]{2})(\d+)$/;
-  const match = id.match(format);
 
-  if (!match) throw new Error("Invalid coral ID format");
+  const newFormat = /^([A-Z]+)-?(\d+)$/;
+  const newMatch = id.match(newFormat);
 
-  const prefix = match[1];
+  if (newMatch) {
+    const prefix = newMatch[1];
+    const prefixMap: { [key: string]: string } = {
+      OFAV: "OF",
+      OANN: "OA",
+      PAST: "PA",
+      SINT: "SI",
+      PSTR: "PD",
+      DSTO: "DS",
+      MCAV: "MC",
+      OFRA: "OF",
+    };
+
+    const speciesCode = prefixMap[prefix];
+    if (!speciesCode) throw new Error(`Unknown species prefix: ${prefix}`);
+
+    return speciesMap[speciesCode];
+  }
+
+  const oldFormat = /^([A-Z]{2})(\d+)$/;
+  const oldMatch = id.match(oldFormat);
+
+  if (!oldMatch) throw new Error("Invalid coral ID format");
+
+  const prefix = oldMatch[1];
   const speciesName = speciesMap[prefix];
 
   if (!speciesName) throw new Error("Unknown species code");
