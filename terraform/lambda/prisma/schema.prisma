@@ -19,6 +19,7 @@ model FileUpload {
   processedAt     DateTime?
   errorMessage    String?
   category        FileCategory
+  fileS3Name      String?
   User            User             @relation(fields: [userId], references: [id])
   GeneticsFile    GeneticsFile?
   MonitoringFile  MonitoringFile?
@@ -100,6 +101,7 @@ model GeneticsRow {
   fileUploadId     String
   localIdGenetProp String
   additionalData   Json
+  accessionNumber  String?
   GeneticsFile     GeneticsFile @relation(fields: [fileUploadId], references: [id])
 
   @@index([fileUploadId])
