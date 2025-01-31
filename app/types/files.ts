@@ -52,15 +52,30 @@ export interface FileData {
   status: FileStatus;
 }
 
-export type OutplantResponse = {
+export type GeneticDetails = {
+  notes?: string;
+  location?: string;
+  source?: string;
+  dateCollected?: string;
+  [key: string]: string | undefined;
+};
+
+export interface OutplantResponse {
   id: string;
   coordinates: string;
   contact: string;
   date: string;
   reefName: string;
   siteName: string;
-  genetics: Genetic[];
-};
+  eventName: string;
+  genetics: {
+    genotype: string;
+    quantity: number;
+    assessionId: string;
+    grouping: string;
+    geneticDetails?: GeneticDetails;
+  }[];
+}
 
 export interface Genetic {
   genotype: string;

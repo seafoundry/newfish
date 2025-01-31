@@ -5,6 +5,10 @@ Before you begin, ensure you have:
 - Node.js installed
 - npm package manager
 
+## Quick Deployment
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/seafoundry/newfish&env=NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,CLERK_SECRET_KEY,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,DATABASE_URL,CLERK_WEBHOOK_SECRET,BUCKET_NAME&envDescription=API%20keys%20needed%20for%20this%20application)
+
 ## Setup Instructions
 
 ### 1. Authentication Setup

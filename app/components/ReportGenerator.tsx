@@ -60,6 +60,25 @@ const OutplantReport = ({ outplants }: { outplants: OutplantResponse[] }) => {
     {}
   );
 
+  const getRecentSpeciesData = (months: number, species: string) => {
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - months);
+
+    return outplants.filter((outplant) => {
+      const outplantDate = new Date(outplant.date);
+      const hasSpecies = outplant.genetics.some(
+        (g) => parseCoralId(g.genotype) === species
+      );
+      return outplantDate >= cutoffDate && hasSpecies;
+    });
+  };
+
+  const allSpecies = [
+    ...new Set(
+      outplants.flatMap((o) => o.genetics.map((g) => parseCoralId(g.genotype)))
+    ),
+  ];
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -132,6 +151,37 @@ const OutplantReport = ({ outplants }: { outplants: OutplantResponse[] }) => {
                   <Text style={styles.speciesCol1}>{species}</Text>
                   <Text style={styles.speciesCol2}>{count}</Text>
                   <Text style={styles.speciesCol3}>{percentage}%</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Recent Activity (Last 6 Months)
+          </Text>
+          <View style={styles.table}>
+            {allSpecies.map((species, i) => {
+              const recentData = getRecentSpeciesData(6, species);
+              if (recentData.length === 0) return null;
+
+              const totalCorals = recentData.reduce(
+                (sum, o) =>
+                  sum +
+                  o.genetics.reduce(
+                    (s, g) =>
+                      parseCoralId(g.genotype) === species ? s + g.quantity : s,
+                    0
+                  ),
+                0
+              );
+
+              return (
+                <View key={i} style={styles.tableRow}>
+                  <Text style={styles.col1}>{species}</Text>
+                  <Text style={styles.col2}>{totalCorals} corals</Text>
+                  <Text style={styles.col3}>{recentData.length} sites</Text>
                 </View>
               );
             })}

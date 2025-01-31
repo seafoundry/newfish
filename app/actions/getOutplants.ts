@@ -2,7 +2,7 @@
 
 import { currentUser } from "@clerk/nextjs/server";
 import { PrismaClient } from "@prisma/client";
-import { OutplantResponse } from "../types/files";
+import { OutplantResponse, GeneticDetails } from "../types/files";
 
 const prisma = new PrismaClient();
 
@@ -13,59 +13,61 @@ export default async function getOutplants() {
 
     const user = await prisma.user.findFirst({
       where: { clerkUserId: clerkUser.id },
+      select: {
+        id: true,
+        email: true,
+        godMode: true,
+      },
     });
 
     if (!user) throw new Error("User not found");
 
-    const outplantFiles = await prisma.outplantingFile.findMany({});
-
-    const outplants: OutplantResponse[] = [];
-    const geneticsRows = await prisma.geneticsRow.findMany({
-      where: {
-        geneticsFile: {
-          fileUpload: {
-            userId: user.id,
-          },
-        },
-      },
-      select: {
-        localIdGenetProp: true,
-        accessionNumber: true,
+    const outplantFiles = await prisma.outplantingFile.findMany({
+      where: user.godMode ? {} : { email: user.email },
+      include: {
+        rows: true,
       },
     });
 
-    for (const outplant of outplantFiles) {
-      const responseData = {
-        id: outplant.id,
-        coordinates: outplant.eventCenterpoint,
-        contact: outplant.email,
-        date: outplant.date,
-        reefName: outplant.reefName,
-        siteName: outplant.siteName,
-        genetics: [],
-      } as OutplantResponse;
+    const geneticsRows = await prisma.geneticsRow.findMany({
+      where: user.godMode
+        ? {}
+        : {
+            geneticsFile: {
+              email: user.email,
+            },
+          },
+      select: {
+        localIdGenetProp: true,
+        accessionNumber: true,
+        additionalData: true,
+      },
+    });
 
-      const rows = await prisma.outplantingRow.findMany({
-        where: {
-          fileUploadId: outplant.id,
-        },
-      });
+    const outplants: OutplantResponse[] = outplantFiles.map((outplant) => ({
+      id: outplant.id,
+      coordinates: outplant.eventCenterpoint,
+      contact: outplant.email,
+      date: outplant.date,
+      reefName: outplant.reefName,
+      siteName: outplant.siteName,
+      eventName: outplant.eventName,
+      genetics: outplant.rows.map((row) => {
+        const geneticData = geneticsRows.find(
+          (genet) => genet.localIdGenetProp === row.genetId
+        );
 
-      const genetics = [];
-
-      for (const row of rows) {
-        genetics.push({
+        return {
           genotype: row.genetId,
           quantity: row.quantity,
-          assessionId:
-            geneticsRows.find((genet) => genet.localIdGenetProp === row.genetId)
-              ?.accessionNumber || "None",
-        });
-      }
-
-      responseData.genetics = genetics;
-      outplants.push(responseData);
-    }
+          grouping: row.grouping,
+          assessionId: geneticData?.accessionNumber || "None",
+          geneticDetails: geneticData?.additionalData as
+            | GeneticDetails
+            | undefined,
+        };
+      }),
+    }));
 
     return outplants;
   } catch (error) {
