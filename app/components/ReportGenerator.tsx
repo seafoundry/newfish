@@ -8,6 +8,7 @@ import {
   View,
   pdf,
 } from "@react-pdf/renderer";
+import { parseCoralId } from "../lib/coral";
 import { OutplantResponse } from "../types/files";
 
 const styles = StyleSheet.create({
@@ -29,62 +30,136 @@ const styles = StyleSheet.create({
   col1: { width: "40%" },
   col2: { width: "30%" },
   col3: { width: "30%" },
+  speciesTable: { marginTop: 10, marginBottom: 15 },
+  speciesRow: {
+    flexDirection: "row",
+    padding: 5,
+    borderBottomWidth: 1,
+    borderColor: "#ddd",
+  },
+  speciesCol1: { width: "40%" },
+  speciesCol2: { width: "30%" },
+  speciesCol3: { width: "30%" },
+  monitoring: { marginTop: 10 },
+  monitoringDate: { marginBottom: 5 },
 });
 
-const OutplantReport = ({ outplants }: { outplants: OutplantResponse[] }) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      <Text style={styles.title}>Outplanting Report</Text>
+const OutplantReport = ({ outplants }: { outplants: OutplantResponse[] }) => {
+  const speciesBreakdown = outplants.reduce(
+    (acc: Record<string, number>, outplant) => {
+      outplant.genetics.forEach((genetic) => {
+        try {
+          const species = parseCoralId(genetic.genotype);
+          acc[species] = (acc[species] || 0) + genetic.quantity;
+        } catch {
+          acc["Unknown"] = (acc["Unknown"] || 0) + genetic.quantity;
+        }
+      });
+      return acc;
+    },
+    {}
+  );
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Summary</Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Total Sites:</Text>
-          <Text style={styles.value}>
-            {new Set(outplants.map((o) => o.siteName)).size}
-          </Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Total Outplants:</Text>
-          <Text style={styles.value}>
-            {outplants.reduce(
-              (sum, o) => sum + o.genetics.reduce((s, g) => s + g.quantity, 0),
-              0
-            )}
-          </Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Organizations:</Text>
-          <Text style={styles.value}>
-            {Array.from(new Set(outplants.map((o) => o.contact))).join(", ")}
-          </Text>
-        </View>
-      </View>
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.title}>Outplanting Report</Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Outplant Details</Text>
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={styles.col1}>Site</Text>
-            <Text style={styles.col2}>Date</Text>
-            <Text style={styles.col3}>Total Corals</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Summary</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Total Sites:</Text>
+            <Text style={styles.value}>
+              {new Set(outplants.map((o) => o.siteName)).size}
+            </Text>
           </View>
-          {outplants.map((outplant, i) => (
-            <View key={i} style={styles.tableRow}>
-              <Text style={styles.col1}>{outplant.siteName}</Text>
-              <Text style={styles.col2}>
-                {new Date(outplant.date).toLocaleDateString()}
-              </Text>
-              <Text style={styles.col3}>
-                {outplant.genetics.reduce((sum, g) => sum + g.quantity, 0)}
-              </Text>
-            </View>
-          ))}
+          <View style={styles.row}>
+            <Text style={styles.label}>Total Outplants:</Text>
+            <Text style={styles.value}>
+              {outplants.reduce(
+                (sum, o) =>
+                  sum + o.genetics.reduce((s, g) => s + g.quantity, 0),
+                0
+              )}
+            </Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Organizations:</Text>
+            <Text style={styles.value}>
+              {Array.from(new Set(outplants.map((o) => o.contact))).join(", ")}
+            </Text>
+          </View>
         </View>
-      </View>
-    </Page>
-  </Document>
-);
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Outplant Details</Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <Text style={styles.col1}>Site</Text>
+              <Text style={styles.col2}>Date</Text>
+              <Text style={styles.col3}>Total Corals</Text>
+            </View>
+            {outplants.map((outplant, i) => (
+              <View key={i} style={styles.tableRow}>
+                <Text style={styles.col1}>{outplant.siteName}</Text>
+                <Text style={styles.col2}>
+                  {new Date(outplant.date).toLocaleDateString()}
+                </Text>
+                <Text style={styles.col3}>
+                  {outplant.genetics.reduce((sum, g) => sum + g.quantity, 0)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Species Breakdown</Text>
+          <View style={styles.speciesTable}>
+            <View style={styles.tableHeader}>
+              <Text style={styles.speciesCol1}>Species</Text>
+              <Text style={styles.speciesCol2}>Total Colonies</Text>
+              <Text style={styles.speciesCol3}>Percentage</Text>
+            </View>
+            {Object.entries(speciesBreakdown).map(([species, count], i) => {
+              const percentage = (
+                (count /
+                  Object.values(speciesBreakdown).reduce((a, b) => a + b, 0)) *
+                100
+              ).toFixed(1);
+              return (
+                <View key={i} style={styles.speciesRow}>
+                  <Text style={styles.speciesCol1}>{species}</Text>
+                  <Text style={styles.speciesCol2}>{count}</Text>
+                  <Text style={styles.speciesCol3}>{percentage}%</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Monitoring Timeline</Text>
+          <View style={styles.monitoring}>
+            {[...new Set(outplants.map((o) => o.date))]
+              .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+              .map((date, i) => (
+                <View key={i} style={styles.monitoringDate}>
+                  <Text>
+                    {new Date(date).toLocaleDateString()}:{" "}
+                    {outplants
+                      .filter((o) => o.date === date)
+                      .map((o) => o.siteName)
+                      .join(", ")}
+                  </Text>
+                </View>
+              ))}
+          </View>
+        </View>
+      </Page>
+    </Document>
+  );
+};
 
 export const generatePDF = async (outplants: OutplantResponse[]) => {
   const blob = await pdf(<OutplantReport outplants={outplants} />).toBlob();
