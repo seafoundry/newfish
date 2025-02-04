@@ -11,6 +11,18 @@ import {
 import { parseCoralId } from "../lib/coral";
 import { OutplantResponse } from "../types/files";
 
+type NurseryGroup = {
+  nursery: string;
+  nurseryRows: {
+    genetId: string;
+    quantity: number;
+  }[];
+  geneticMappings: {
+    localGenetId: string;
+    externalGenetId: string;
+  }[];
+};
+
 const styles = StyleSheet.create({
   page: { padding: 30 },
   title: { fontSize: 24, marginBottom: 20 },
@@ -27,9 +39,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#ddd",
   },
-  col1: { width: "40%" },
-  col2: { width: "30%" },
-  col3: { width: "30%" },
+  col1: { width: "25%" },
+  col2: { width: "25%" },
+  col3: { width: "25%" },
+  col4: { width: "25%" },
   speciesTable: { marginTop: 10, marginBottom: 15 },
   speciesRow: {
     flexDirection: "row",
@@ -44,7 +57,12 @@ const styles = StyleSheet.create({
   monitoringDate: { marginBottom: 5 },
 });
 
-const OutplantReport = ({ outplants }: { outplants: OutplantResponse[] }) => {
+type ReportProps = {
+  outplants: OutplantResponse[];
+  nurseries?: NurseryGroup[];
+};
+
+const OutplantReport = ({ outplants, nurseries = [] }: ReportProps) => {
   const speciesBreakdown = outplants.reduce(
     (acc: Record<string, number>, outplant) => {
       outplant.genetics.forEach((genetic) => {
@@ -206,13 +224,85 @@ const OutplantReport = ({ outplants }: { outplants: OutplantResponse[] }) => {
               ))}
           </View>
         </View>
+
+        {nurseries.length > 0 && (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Nursery Data Summary</Text>
+              <Text>Total Nurseries: {nurseries.length}</Text>
+            </View>
+            {(() => {
+              const allNurseryRows = nurseries.flatMap((g) => g.nurseryRows);
+              const aggregated = allNurseryRows.reduce((acc, row) => {
+                let species = "Unknown";
+                try {
+                  species = parseCoralId(row.genetId);
+                } catch {}
+                if (!acc[species]) {
+                  acc[species] = { quantity: 0, entries: 0 };
+                }
+                acc[species].quantity += row.quantity;
+                acc[species].entries += 1;
+                return acc;
+              }, {} as Record<string, { quantity: number; entries: number }>);
+
+              const allMappings = nurseries.flatMap((g) => g.geneticMappings);
+              return (
+                <View style={styles.table}>
+                  <View style={styles.tableHeader}>
+                    <Text style={styles.col1}>Species</Text>
+                    <Text style={styles.col2}>Total Corals</Text>
+                    <Text style={styles.col3}>Entries</Text>
+                    <Text style={styles.col4}>External Mapping</Text>
+                  </View>
+                  {Object.entries(aggregated).map(([species, data], i) => {
+                    const mappings = Array.from(
+                      new Set(
+                        allMappings
+                          .filter((m) =>
+                            species !== "Unknown"
+                              ? (() => {
+                                  try {
+                                    return (
+                                      parseCoralId(m.localGenetId) === species
+                                    );
+                                  } catch {
+                                    return false;
+                                  }
+                                })()
+                              : false
+                          )
+                          .map((m) => m.externalGenetId)
+                      )
+                    );
+                    return (
+                      <View key={i} style={styles.tableRow}>
+                        <Text style={styles.col1}>{species}</Text>
+                        <Text style={styles.col2}>{data.quantity}</Text>
+                        <Text style={styles.col3}>{data.entries}</Text>
+                        <Text style={styles.col4}>
+                          {mappings.length > 0 ? mappings.join(", ") : "-"}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })()}
+          </>
+        )}
       </Page>
     </Document>
   );
 };
 
-export const generatePDF = async (outplants: OutplantResponse[]) => {
-  const blob = await pdf(<OutplantReport outplants={outplants} />).toBlob();
+export const generatePDF = async (
+  outplants: OutplantResponse[],
+  nurseries?: NurseryGroup[]
+) => {
+  const blob = await pdf(
+    <OutplantReport outplants={outplants} nurseries={nurseries} />
+  ).toBlob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

@@ -1,8 +1,8 @@
-interface SpeciesMapping {
+export interface SpeciesMapping {
   [key: string]: string;
 }
 
-const speciesMap: SpeciesMapping = {
+export const speciesMap: SpeciesMapping = {
   MC: "Montastraea cavernosa",
   OF: "Orbicella faveolata",
   AB: "Acropora abrolhosensis",
@@ -65,23 +65,24 @@ export function parseCoralId(id: string): string {
       DSTO: "DS",
       MCAV: "MC",
       OFRA: "OF",
+      AP: "AP",
     };
 
     const speciesCode = prefixMap[prefix];
-    if (!speciesCode) throw new Error(`Unknown species prefix: ${prefix}`);
+    if (!speciesCode) return id;
 
-    return speciesMap[speciesCode];
+    return speciesMap[speciesCode] || id;
   }
 
   const oldFormat = /^([A-Z]{2})(\d+)$/;
   const oldMatch = id.match(oldFormat);
 
-  if (!oldMatch) throw new Error("Invalid coral ID format");
+  if (!oldMatch) return id;
 
   const prefix = oldMatch[1];
   const speciesName = speciesMap[prefix];
 
-  if (!speciesName) throw new Error("Unknown species code");
+  if (!speciesName) return id;
 
   return speciesName;
 }

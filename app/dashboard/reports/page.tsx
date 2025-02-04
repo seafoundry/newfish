@@ -1,12 +1,14 @@
 "use client";
 
+import { getNurseries } from "@/app/actions/getNurseries"; // new import
 import getOutplants from "@/app/actions/getOutplants";
 import { generatePDF } from "@/app/components/ReportGenerator";
 import { listAllSpecies, parseCoralId } from "@/app/lib/coral";
 import { OutplantResponse } from "@/app/types/files";
-import { useEffect, useState, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { NurseryRow } from "@prisma/client"; // new import if needed
+import { Fragment, useEffect, useState } from "react";
 
 type BoundingBox = {
   minLat: number | undefined;
@@ -24,6 +26,18 @@ type FilterState = {
   endDate: string;
   boundingBox: BoundingBox;
 };
+
+interface NurseryGroup {
+  nursery: string;
+  nurseryRows: NurseryRow[];
+  geneticMappings: {
+    id: string;
+    userId: string;
+    localGenetId: string;
+    externalGenetId: string;
+    createdAt: Date;
+  }[];
+}
 
 export default function ReportsPage() {
   const [outplants, setOutplants] = useState<OutplantResponse[]>([]);
@@ -44,6 +58,9 @@ export default function ReportsPage() {
   const [selectedOutplant, setSelectedOutplant] =
     useState<OutplantResponse | null>(null);
 
+  const [includeNurseryMappings, setIncludeNurseryMappings] = useState(false);
+  const [nurseries, setNurseries] = useState<NurseryGroup[]>([]); // new state for nursery data
+
   const allOrganizations = [...new Set(outplants.map((o) => o.contact))];
   const allSites = [...new Set(outplants.map((o) => o.siteName))];
   const allSpecies = listAllSpecies();
@@ -53,6 +70,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     getOutplants().then(setOutplants);
+    getNurseries().then((data) => setNurseries(data));
   }, []);
 
   const filteredOutplants = outplants.filter((outplant) => {
@@ -286,17 +304,82 @@ export default function ReportsPage() {
                 ))}
               </select>
             </div>
+            <div className="flex items-center space-x-2">
+              <input
+                id="includeMappings"
+                type="checkbox"
+                checked={includeNurseryMappings}
+                onChange={(e) => setIncludeNurseryMappings(e.target.checked)}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              />
+              <label
+                htmlFor="includeMappings"
+                className="text-sm text-gray-700"
+              >
+                Include Nursery Mappings
+              </label>
+            </div>
           </div>
 
           <div className="mt-6 flex justify-end">
             <button
-              onClick={() => generatePDF(filteredOutplants)}
+              onClick={() =>
+                generatePDF(
+                  filteredOutplants,
+                  includeNurseryMappings ? nurseries : []
+                )
+              }
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Generate Report
             </button>
           </div>
         </div>
+
+        {includeNurseryMappings && nurseries.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Nursery Breakdown</h2>
+            <div className="space-y-4">
+              {nurseries.map((nurseryGroup) => (
+                <details
+                  key={nurseryGroup.nursery}
+                  className="border rounded mb-2"
+                >
+                  <summary className="cursor-pointer px-4 py-2 font-medium">
+                    {nurseryGroup.nursery}
+                  </summary>
+                  <div className="px-4 py-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {nurseryGroup.nurseryRows.map((row, i) => {
+                      const species = parseCoralId(row.genetId);
+                      const mapping = nurseryGroup.geneticMappings.find(
+                        (m) => m.localGenetId === row.genetId
+                      );
+                      return (
+                        <div
+                          key={i}
+                          className={`flex items-center justify-between border p-2 rounded ${
+                            mapping
+                              ? "bg-blue-50 border-blue-300"
+                              : "bg-gray-50"
+                          }`}
+                        >
+                          <div className="text-sm text-gray-600">
+                            {species} ({row.genetId}): {row.quantity}
+                          </div>
+                          {mapping && (
+                            <div className="text-xs text-blue-700">
+                              external mapping: {mapping.externalGenetId}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Quick Insights</h2>
