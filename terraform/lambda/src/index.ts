@@ -1,6 +1,6 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GeneticsRow, NurseryRow, PrismaClient } from "@prisma/client";
-import { Context, S3Event } from "aws-lambda";
+import { S3Event } from "aws-lambda";
 import { randomUUID } from "crypto";
 import { parse } from "csv-parse/sync";
 
@@ -14,25 +14,42 @@ try {
   prisma = new PrismaClient();
 }
 
-// const REQUIRED_COLUMNS = {
-//   Genetics: process.env.REQUIRED_COLUMNS_GENETICS?.split(",") || [],
-//   Nursery: process.env.REQUIRED_COLUMNS_NURSERY?.split(",") || [],
-//   Outplanting: process.env.REQUIRED_COLUMNS_OUTPLANTING?.split(",") || [],
-//   Monitoring: [],
-// };
+export async function handler(event: S3Event) {
+  console.log("Lambda invoked with event:", JSON.stringify(event, null, 2));
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function handler(event: S3Event, context: Context) {
   try {
     await prisma.$connect();
 
+    if (!event.Records || !event.Records.length) {
+      console.error("No records found in event:", event);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "No S3 records found in event",
+          event: event,
+        }),
+      };
+    }
+
     const record = event.Records[0];
+
+    if (!record.s3 || !record.s3.bucket || !record.s3.object) {
+      console.error("Invalid S3 record structure:", record);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Invalid S3 record structure",
+          record: record,
+        }),
+      };
+    }
+
     const bucket = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key);
 
-    console.log("record:", record);
-    console.log("bucket:", bucket);
-    console.log("key:", key);
+    console.log("Processing S3 event:");
+    console.log("- Bucket:", bucket);
+    console.log("- Key:", key);
 
     if (key.includes("/invalid/")) {
       console.log("Skipping validation for file in invalid folder:", key);
@@ -164,7 +181,6 @@ export async function handler(event: S3Event, context: Context) {
           throw new Error("Nursery file not found");
         }
 
-        // Delete and create in a single transaction
         await prisma.$transaction([
           prisma.nurseryRow.deleteMany({
             where: {
@@ -274,6 +290,9 @@ export async function handler(event: S3Event, context: Context) {
         fileName: fullFileName,
       },
     });
+  } catch (error) {
+    console.error("Error processing event:", error);
+    throw error;
   } finally {
     await prisma.$disconnect();
   }

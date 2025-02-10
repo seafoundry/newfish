@@ -16,14 +16,27 @@ fi
 
 ENV=${1:-dev}
 
+if [ "$ENV" != "dev" ] && [ "$ENV" != "prod" ]; then
+    echo "Error: Environment must be either 'dev' or 'prod'"
+    exit 1
+fi
+
+echo "Deploying to $ENV environment..."
+
 echo "Building Lambda function..."
 cd lambda
-rm -rf dist
 
+rm -rf dist
+mkdir -p dist/node_modules/.prisma/client
+mkdir -p dist/node_modules/@prisma/client
+
+echo "Installing dependencies..."
 npm install
 
+echo "Generating Prisma client..."
 npx prisma generate
 
+echo "Building with esbuild..."
 npm run build
 
 mkdir -p dist/node_modules/.prisma/client
@@ -36,6 +49,6 @@ cp prisma/schema.prisma dist/
 cd ..
 
 echo "Running Terraform..."
-terraform init
+terraform init -backend-config="backend-${ENV}.hcl" -reconfigure
 terraform plan -var-file="${ENV}.tfvars" -var="database_url=${DATABASE_URL}"
 terraform apply -var-file="${ENV}.tfvars" -var="database_url=${DATABASE_URL}" -auto-approve

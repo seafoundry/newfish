@@ -1,13 +1,13 @@
 "use client";
 
-import { getNurseries } from "@/app/actions/getNurseries"; // new import
+import { getNurseries } from "@/app/actions/getNurseries";
 import getOutplants from "@/app/actions/getOutplants";
 import { generatePDF } from "@/app/components/ReportGenerator";
 import { listAllSpecies, parseCoralId } from "@/app/lib/coral";
 import { OutplantResponse } from "@/app/types/files";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { NurseryRow } from "@prisma/client"; // new import if needed
+import { NurseryRow } from "@prisma/client";
 import { Fragment, useEffect, useState } from "react";
 
 type BoundingBox = {
@@ -59,7 +59,7 @@ export default function ReportsPage() {
     useState<OutplantResponse | null>(null);
 
   const [includeNurseryMappings, setIncludeNurseryMappings] = useState(false);
-  const [nurseries, setNurseries] = useState<NurseryGroup[]>([]); // new state for nursery data
+  const [nurseries, setNurseries] = useState<NurseryGroup[]>([]);
 
   const allOrganizations = [...new Set(outplants.map((o) => o.contact))];
   const allSites = [...new Set(outplants.map((o) => o.siteName))];
