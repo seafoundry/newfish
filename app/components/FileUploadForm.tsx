@@ -1,13 +1,11 @@
 "use client";
 
+import { getFileSignedUrls } from "@/app/actions/getFileSignedUrls";
 import { getSignedUrl } from "@/app/actions/getSignedUrl";
 import { FileCategory, FileData } from "@/app/types/files";
-import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import { useCallback, useEffect, useState } from "react";
-import { getOutplantingEvents } from "../actions/getOutplantingEvents";
-import { getOutplantingSignedURLs } from "../actions/getOutplantingSignedURLs";
 
 const categories: FileCategory[] = [
   "Genetics",
@@ -76,18 +74,6 @@ interface FormData {
   mappingFile?: File | null;
 }
 
-type OutplantingEvent = {
-  id: string;
-  outplantingFileId: string | null;
-  createdAt: Date;
-  status: string;
-  metadata: {
-    reefName: string;
-    siteName: string;
-    eventName: string;
-  };
-};
-
 type SignedURL = {
   fileId: string;
   name: string;
@@ -130,7 +116,7 @@ interface FileUploadFormProps {
 
 export default function FileUploadForm({ files }: FileUploadFormProps) {
   const router = useRouter();
-  const [category, setCategory] = useState<FileCategory>("Monitoring"); // Changed to default to Monitoring
+  const [category, setCategory] = useState<FileCategory>("Monitoring");
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
@@ -147,9 +133,6 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
   });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [outplantingEvents, setOutplantingEvents] = useState<
-    OutplantingEvent[]
-  >([]);
   const [signedUrls, setSignedUrls] = useState<SignedURL[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
 
@@ -289,9 +272,8 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
 
   useEffect(() => {
     setIsLoadingFiles(true);
-    Promise.all([getOutplantingEvents(), getOutplantingSignedURLs()])
-      .then(([events, urls]) => {
-        setOutplantingEvents(events);
+    getFileSignedUrls()
+      .then((urls) => {
         setSignedUrls(urls);
       })
       .catch((error) => {
@@ -301,7 +283,7 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
       .finally(() => {
         setIsLoadingFiles(false);
       });
-  }, [category]);
+  }, [files]); // Update when files prop changes instead of category
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
@@ -321,69 +303,42 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
           <p className="text-sm text-gray-500">Loading...</p>
         ) : (
           <div className="space-y-2">
-            {category === "Monitoring"
-              ? outplantingEvents
-                  .sort(
-                    (a, b) =>
-                      new Date(b.createdAt).getTime() -
-                      new Date(a.createdAt).getTime()
-                  )
-                  .slice(0, 5)
-                  .map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex items-center justify-between bg-white p-2 rounded-md"
-                    >
-                      <span className="text-sm text-gray-600 truncate flex-1">
-                        {event.metadata.eventName}
-                      </span>
-                      {signedUrls.find(
-                        (url) => url.fileId === event.outplantingFileId
-                      ) && (
-                        <a
-                          href={
-                            signedUrls.find(
-                              (url) => url.fileId === event.outplantingFileId
-                            )?.url
-                          }
-                          download
-                          className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                        >
-                          Download
-                        </a>
-                      )}
-                    </div>
-                  ))
-              : files
-                  ?.filter((f: FileData) => f.category === category)
-                  .sort(
-                    (a, b) =>
-                      new Date(b.uploadDate).getTime() -
-                      new Date(a.uploadDate).getTime()
-                  )
-                  .slice(0, 5)
-                  .map((file: FileData) => (
-                    <div
-                      key={file.id}
-                      className="flex items-center justify-between bg-white p-2 rounded-md"
-                    >
-                      <span className="text-sm text-gray-600 truncate flex-1">
-                        {file.fileName}
-                      </span>
-                      {signedUrls.find((url) => url.fileId === file.id) && (
-                        <a
-                          href={
-                            signedUrls.find((url) => url.fileId === file.id)
-                              ?.url
-                          }
-                          download
-                          className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                        >
-                          Download
-                        </a>
-                      )}
-                    </div>
-                  ))}
+            {files?.filter((f: FileData) => f.category === category).length >
+            0 ? (
+              files
+                ?.filter((f: FileData) => f.category === category)
+                .sort(
+                  (a, b) =>
+                    new Date(b.uploadDate).getTime() -
+                    new Date(a.uploadDate).getTime()
+                )
+                .slice(0, 5)
+                .map((file: FileData) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between bg-white p-2 rounded-md"
+                  >
+                    <span className="text-sm text-gray-600 truncate flex-1">
+                      {file.fileName}
+                    </span>
+                    {signedUrls.find((url) => url.fileId === file.id) && (
+                      <a
+                        href={
+                          signedUrls.find((url) => url.fileId === file.id)?.url
+                        }
+                        download={file.fileName}
+                        className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                      >
+                        Download
+                      </a>
+                    )}
+                  </div>
+                ))
+            ) : (
+              <p className="text-sm text-gray-500 text-center p-2">
+                No {category.toLowerCase()} files available
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -399,7 +354,6 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           >
-            <option value="">Select a category</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
@@ -475,134 +429,7 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
               value={formData.coordinates}
               onChange={handleInputChange}
             />
-            {outplantingEvents.length > 0 ? (
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1 text-gray-700">
-                  Event ID <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="eventId"
-                  value={formData.eventId}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      eventId: e.target.value,
-                    }));
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Select an outplanting event</option>
-                  {outplantingEvents.map((event) => (
-                    <option
-                      key={event.id}
-                      value={event.outplantingFileId || ""}
-                      className="py-2"
-                    >
-                      {event.metadata.eventName} - {event.metadata.reefName} (
-                      {formatDistanceToNow(new Date(event.createdAt), {
-                        addSuffix: true,
-                      })}
-                      ){event.status !== "completed" && ` - ${event.status}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
-                <p className="text-amber-800 font-medium text-center">
-                  🌊 Looks like we need some coral history! Please upload an
-                  outplanting event first to start monitoring.
-                </p>
-              </div>
-            )}
-            <div className="mt-4">
-              {isLoadingFiles ? (
-                <div className="p-4 bg-gray-50 rounded-md text-center">
-                  <p className="text-gray-600">Loading available files...</p>
-                </div>
-              ) : formData.eventId ? (
-                <div className="p-4 bg-gray-50 rounded-md">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Selected Event File:
-                  </h4>
-                  {signedUrls
-                    .filter((url) => url.fileId === formData.eventId)
-                    .map((file) => (
-                      <div
-                        key={file.fileId}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <span className="text-gray-600">{file.name}</span>
-                        <a
-                          href={file.url}
-                          download
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                        >
-                          Download Original File
-                        </a>
-                      </div>
-                    ))}
-                  <p className="mt-3 text-xs text-gray-500 italic">
-                    This is the original outplanting file you can reference for
-                    monitoring
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 bg-gray-50 rounded-md">
-                  <p className="text-gray-600 text-center">
-                    Select an outplanting event to view its file
-                  </p>
-                </div>
-              )}
-            </div>
           </>
-        )}
-
-        {category === "Genetics" && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1 text-gray-700">
-              Mapping File (Optional)
-            </label>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  if (!file.name.toLowerCase().endsWith(".csv")) {
-                    setUploadError("Mapping file must be a CSV file");
-                    e.target.value = "";
-                    return;
-                  }
-                  Papa.parse(file, {
-                    header: false,
-                    preview: 1,
-                    complete: (results) => {
-                      const data = results.data as unknown[][];
-                      if (data[0].length !== 2) {
-                        setUploadError(
-                          "Mapping file must have exactly 2 columns"
-                        );
-                        e.target.value = "";
-                        return;
-                      }
-                      setFormData((prev) => ({ ...prev, mappingFile: file }));
-                      setUploadError(null);
-                    },
-                  });
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p className="mt-1 text-sm text-gray-500">
-              CSV format: 2 columns - First column: Your genotype names, Second
-              column: Other organization&apos;s corresponding genotype names
-            </p>
-          </div>
         )}
 
         <div className="mt-4">
