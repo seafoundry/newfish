@@ -2,6 +2,9 @@
 
 import { getFileSignedUrls } from "@/app/actions/getFileSignedUrls";
 import { getSignedUrl } from "@/app/actions/getSignedUrl";
+import { getOutplantingEvents } from "@/app/actions/getOutplantingEvents";
+import { getOutplantingSignedURLs } from "@/app/actions/getOutplantingSignedURLs";
+import { formatDistanceToNow } from "date-fns";
 import { FileCategory, FileData } from "@/app/types/files";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
@@ -63,7 +66,7 @@ const templateHeaders = {
   Genetics: ["Local ID/Genet Propogation", "AccessionNumber"],
   Nursery: ["Local ID", "Quantity", "Nursery"],
   Outplanting: ["Local ID", "Quantity", "Tag"],
-  Monitoring: ["Data Column 1", "Data Column 2"], // Example headers for monitoring
+  Monitoring: ["Data Column 1", "Data Column 2"],
 };
 
 const downloadTemplate = (category: FileCategory) => {
@@ -97,6 +100,18 @@ type SignedURL = {
   fileId: string;
   name: string;
   url: string;
+};
+
+type OutplantingEvent = {
+  id: string;
+  outplantingFileId: string | null;
+  createdAt: Date;
+  status: string;
+  metadata: {
+    reefName: string;
+    siteName: string;
+    eventName: string;
+  };
 };
 
 const InputField = ({
@@ -154,6 +169,9 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [signedUrls, setSignedUrls] = useState<SignedURL[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [outplantingEvents, setOutplantingEvents] = useState<
+    OutplantingEvent[]
+  >([]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,9 +320,18 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
 
   useEffect(() => {
     setIsLoadingFiles(true);
-    getFileSignedUrls()
-      .then((urls) => {
-        setSignedUrls(urls);
+    Promise.all([
+      getFileSignedUrls(),
+      category === "Monitoring" ? getOutplantingEvents() : Promise.resolve([]),
+      category === "Monitoring"
+        ? getOutplantingSignedURLs()
+        : Promise.resolve([]),
+    ])
+      .then(([fileUrls, events, outplantingUrls]) => {
+        setSignedUrls([...fileUrls, ...outplantingUrls]);
+        if (category === "Monitoring") {
+          setOutplantingEvents(events);
+        }
       })
       .catch((error) => {
         console.error("Failed to load files:", error);
@@ -313,7 +340,7 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
       .finally(() => {
         setIsLoadingFiles(false);
       });
-  }, [files]); // Update when files prop changes instead of category
+  }, [files, category]);
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
@@ -466,6 +493,90 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
               value={formData.coordinates}
               onChange={handleInputChange}
             />
+            {outplantingEvents.length > 0 ? (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  Event ID <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="eventId"
+                  value={formData.eventId}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      eventId: e.target.value,
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select an outplanting event</option>
+                  {outplantingEvents.map((event) => (
+                    <option
+                      key={event.id}
+                      value={event.outplantingFileId || ""}
+                      className="py-2"
+                    >
+                      {event.metadata.eventName} - {event.metadata.reefName} (
+                      {formatDistanceToNow(new Date(event.createdAt), {
+                        addSuffix: true,
+                      })}
+                      ){event.status !== "completed" && ` - ${event.status}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+                <p className="text-amber-800 font-medium text-center">
+                  🌊 Looks like we need some coral history! Please upload an
+                  outplanting event first to start monitoring.
+                </p>
+              </div>
+            )}
+            <div className="mt-4">
+              {isLoadingFiles ? (
+                <div className="p-4 bg-gray-50 rounded-md text-center">
+                  <p className="text-gray-600">Loading available files...</p>
+                </div>
+              ) : formData.eventId ? (
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Selected Event File:
+                  </h4>
+                  {signedUrls
+                    .filter((url) => url.fileId === formData.eventId)
+                    .map((file) => (
+                      <div
+                        key={file.fileId}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span className="text-gray-600">{file.name}</span>
+                        <a
+                          href={file.url}
+                          download
+                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          Download Original File
+                        </a>
+                      </div>
+                    ))}
+                  <p className="mt-3 text-xs text-gray-500 italic">
+                    This is the original outplanting file you can reference for
+                    monitoring
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <p className="text-gray-600 text-center">
+                    Select an outplanting event to view its file
+                  </p>
+                </div>
+              )}
+            </div>
           </>
         )}
 
