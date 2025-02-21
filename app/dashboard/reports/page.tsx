@@ -2,7 +2,7 @@
 
 import { getNurseries } from "@/app/actions/getNurseries";
 import getOutplants from "@/app/actions/getOutplants";
-import { generatePDF } from "@/app/components/ReportGenerator";
+import { generateCSV } from "@/app/components/ReportGenerator";
 import { listAllSpecies, parseCoralId } from "@/app/lib/coral";
 import { OutplantResponse } from "@/app/types/files";
 import { Dialog, Transition } from "@headlessui/react";
@@ -324,14 +324,14 @@ export default function ReportsPage() {
           <div className="mt-6 flex justify-end">
             <button
               onClick={() =>
-                generatePDF(
+                generateCSV(
                   filteredOutplants,
                   includeNurseryMappings ? nurseries : []
                 )
               }
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
-              Generate Report
+              Export CSV Report
             </button>
           </div>
         </div>
