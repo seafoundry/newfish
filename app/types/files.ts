@@ -47,7 +47,7 @@ export type FileStatus =
 export interface FileData {
   id: string;
   fileName: string;
-  category: string;
+  category: FileCategory;
   uploadDate: string;
   status: FileStatus;
 }

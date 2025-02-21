@@ -1,7 +1,7 @@
 "use client";
 
 import { getSignedUrl } from "@/app/actions/getSignedUrl";
-import { FileCategory } from "@/app/types/files";
+import { FileCategory, FileData } from "@/app/types/files";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
@@ -124,9 +124,13 @@ const InputField = ({
   </div>
 );
 
-export default function FileUploadForm() {
+interface FileUploadFormProps {
+  files: FileData[];
+}
+
+export default function FileUploadForm({ files }: FileUploadFormProps) {
   const router = useRouter();
-  const [category, setCategory] = useState<FileCategory | "">("");
+  const [category, setCategory] = useState<FileCategory>("Monitoring"); // Changed to default to Monitoring
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
@@ -268,7 +272,7 @@ export default function FileUploadForm() {
         file: null,
         mappingFile: null,
       });
-      setCategory("");
+      setCategory("Monitoring");
 
       alert("File uploaded successfully!");
 
@@ -284,21 +288,19 @@ export default function FileUploadForm() {
   };
 
   useEffect(() => {
-    if (category === "Monitoring") {
-      setIsLoadingFiles(true);
-      Promise.all([getOutplantingEvents(), getOutplantingSignedURLs()])
-        .then(([events, urls]) => {
-          setOutplantingEvents(events);
-          setSignedUrls(urls);
-        })
-        .catch((error) => {
-          console.error("Failed to load files:", error);
-          setUploadError("Failed to load outplanting files");
-        })
-        .finally(() => {
-          setIsLoadingFiles(false);
-        });
-    }
+    setIsLoadingFiles(true);
+    Promise.all([getOutplantingEvents(), getOutplantingSignedURLs()])
+      .then(([events, urls]) => {
+        setOutplantingEvents(events);
+        setSignedUrls(urls);
+      })
+      .catch((error) => {
+        console.error("Failed to load files:", error);
+        setUploadError("Failed to load files");
+      })
+      .finally(() => {
+        setIsLoadingFiles(false);
+      });
   }, [category]);
 
   return (
@@ -310,6 +312,81 @@ export default function FileUploadForm() {
           {uploadError}
         </div>
       )}
+
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <h3 className="text-sm font-medium text-gray-700 mb-2">
+          Recent {category} Files
+        </h3>
+        {isLoadingFiles ? (
+          <p className="text-sm text-gray-500">Loading...</p>
+        ) : (
+          <div className="space-y-2">
+            {category === "Monitoring"
+              ? outplantingEvents
+                  .sort(
+                    (a, b) =>
+                      new Date(b.createdAt).getTime() -
+                      new Date(a.createdAt).getTime()
+                  )
+                  .slice(0, 5)
+                  .map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between bg-white p-2 rounded-md"
+                    >
+                      <span className="text-sm text-gray-600 truncate flex-1">
+                        {event.metadata.eventName}
+                      </span>
+                      {signedUrls.find(
+                        (url) => url.fileId === event.outplantingFileId
+                      ) && (
+                        <a
+                          href={
+                            signedUrls.find(
+                              (url) => url.fileId === event.outplantingFileId
+                            )?.url
+                          }
+                          download
+                          className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                        >
+                          Download
+                        </a>
+                      )}
+                    </div>
+                  ))
+              : files
+                  ?.filter((f: FileData) => f.category === category)
+                  .sort(
+                    (a, b) =>
+                      new Date(b.uploadDate).getTime() -
+                      new Date(a.uploadDate).getTime()
+                  )
+                  .slice(0, 5)
+                  .map((file: FileData) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center justify-between bg-white p-2 rounded-md"
+                    >
+                      <span className="text-sm text-gray-600 truncate flex-1">
+                        {file.fileName}
+                      </span>
+                      {signedUrls.find((url) => url.fileId === file.id) && (
+                        <a
+                          href={
+                            signedUrls.find((url) => url.fileId === file.id)
+                              ?.url
+                          }
+                          download
+                          className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                        >
+                          Download
+                        </a>
+                      )}
+                    </div>
+                  ))}
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="mb-4">
