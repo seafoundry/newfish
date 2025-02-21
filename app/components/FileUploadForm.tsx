@@ -59,6 +59,25 @@ const validateFileColumns = (
   });
 };
 
+const templateHeaders = {
+  Genetics: ["Local ID/Genet Propogation", "AccessionNumber"],
+  Nursery: ["Local ID", "Quantity", "Nursery"],
+  Outplanting: ["Local ID", "Quantity", "Tag"],
+  Monitoring: ["Data Column 1", "Data Column 2"], // Example headers for monitoring
+};
+
+const downloadTemplate = (category: FileCategory) => {
+  const headers = templateHeaders[category];
+  const csvContent = headers.join(",") + "\n";
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute("download", `${category.toLowerCase()}_template.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 interface FormData {
   name: string;
   email: string;
@@ -155,6 +174,13 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
       }
 
       try {
+        const inputName = e.target.name;
+        if (inputName === "mappingFile") {
+          setFormData((prev) => ({ ...prev, mappingFile: file }));
+          setUploadError(null);
+          return;
+        }
+
         if (category) {
           await validateFileColumns(file, category as FileCategory);
           setFormData((prev) => ({ ...prev, file }));
@@ -165,7 +191,11 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
       } catch (error) {
         setUploadError(error instanceof Error ? error.message : String(error));
         e.target.value = "";
-        setFormData((prev) => ({ ...prev, file: null }));
+        if (e.target.name === "mappingFile") {
+          setFormData((prev) => ({ ...prev, mappingFile: null }));
+        } else {
+          setFormData((prev) => ({ ...prev, file: null }));
+        }
       }
     },
     [category]
@@ -360,6 +390,13 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => downloadTemplate(category)}
+            className="mt-2 text-sm text-blue-600 hover:text-blue-800 focus:outline-none"
+          >
+            Download Sample CSV
+          </button>
         </div>
 
         <InputField
@@ -438,12 +475,32 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
           </label>
           <input
             type="file"
+            name="mainFile"
             accept=".csv"
             onChange={handleFileChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
+
+        {category === "Genetics" && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700">
+              Mapping File (Optional)
+            </label>
+            <input
+              type="file"
+              name="mappingFile"
+              accept=".csv"
+              onChange={handleFileChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              CSV format: 2 columns - First column: Your genotype names, Second
+              column: Other organization&apos;s corresponding genotype names
+            </p>
+          </div>
+        )}
 
         <button
           type="submit"
