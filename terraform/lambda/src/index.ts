@@ -194,13 +194,13 @@ export async function handler(event: S3Event) {
           prisma.nurseryRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
-              const localIdGenetProp = record["Genotype"];
+              const localIdGenetProp = record["Local ID"];
               const quantity = parseInt(record["Quantity"]);
               const nursery = record["Nursery"];
 
               const additionalData = { ...record };
 
-              delete additionalData["Genotype"];
+              delete additionalData["Local ID"];
               delete additionalData["Quantity"];
               delete additionalData["Nursery"];
 
@@ -232,13 +232,13 @@ export async function handler(event: S3Event) {
           await tx.outplantingRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
-              const genetId = record["Genotype"];
+              const genetId = record["Local ID"];
               const quantity = parseInt(record["Quantity"]);
               const grouping = record["Tag"];
 
               const additionalData = { ...record };
 
-              delete additionalData["Genotype"];
+              delete additionalData["Local ID"];
               delete additionalData["Quantity"];
               delete additionalData["Tag"];
 

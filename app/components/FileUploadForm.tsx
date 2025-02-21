@@ -16,8 +16,8 @@ const categories: FileCategory[] = [
 
 const requiredColumns = {
   Genetics: ["Local ID/Genet Propagation"],
-  Nursery: ["Genotype", "Quantity", "Nursery"],
-  Outplanting: ["Genotype", "Quantity", "Tag"],
+  Nursery: ["Local ID", "Quantity", "Nursery"],
+  Outplanting: ["Local ID", "Quantity", "Tag"],
   Monitoring: [],
 };
 
