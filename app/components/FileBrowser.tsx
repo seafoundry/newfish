@@ -35,7 +35,7 @@ export default function FileBrowser({ files }: FileBrowserProps) {
       }
     };
     loadUrls();
-  }, []);
+  }, [files]);
 
   useEffect(() => {
     setFilteredFiles(files);

@@ -305,6 +305,16 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
       });
       setCategory("Monitoring");
 
+      const newUrls = await getFileSignedUrls();
+      setSignedUrls((prevUrls) => {
+        const outplantingUrls = prevUrls.filter(
+          (url) =>
+            url.fileId.startsWith("outplanting") ||
+            !newUrls.some((newUrl) => newUrl.fileId === url.fileId)
+        );
+        return [...outplantingUrls, ...newUrls];
+      });
+
       alert("File uploaded successfully!");
 
       router.refresh();

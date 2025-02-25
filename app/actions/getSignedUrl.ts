@@ -29,12 +29,15 @@ export async function getSignedUrl(
   }
 
   try {
+    const timestamp = new Date().getTime();
+    const fileNameWithTimestamp = `${timestamp}-${fileName}`;
+
     const [dbUser, signedUrl] = await Promise.all([
       prisma.user.findUnique({
         where: { clerkUserId: user.id },
         select: { id: true },
       }),
-      createSignedUploadUrl(user.id, fileName, fileType, category),
+      createSignedUploadUrl(user.id, fileNameWithTimestamp, fileType, category),
     ]);
 
     if (!dbUser) {
@@ -48,7 +51,7 @@ export async function getSignedUrl(
         data: {
           id: fileUploadId,
           userId: dbUser.id,
-          fileName,
+          fileName: fileNameWithTimestamp,
           mimeType: fileType,
           category: category as FileCategory,
           updatedAt: new Date(),

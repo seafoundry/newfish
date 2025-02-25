@@ -43,8 +43,7 @@ export async function createSignedUploadUrl(
   metadata?: Record<string, string>
 ): Promise<string> {
   try {
-    const timestamp = new Date().getTime();
-    const key = `users/${userId}/${category}/${timestamp}-${fileName}`;
+    const key = `users/${userId}/${category}/${fileName}`;
 
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
