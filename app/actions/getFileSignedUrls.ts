@@ -16,7 +16,6 @@ export async function getFileSignedUrls() {
 
   if (!user) throw new Error("User not found");
 
-  // Include monitoring and all other file types
   const files = await prisma.fileUpload.findMany({
     where: {
       userId: user.id,
@@ -24,7 +23,7 @@ export async function getFileSignedUrls() {
     orderBy: {
       createdAt: "desc",
     },
-    take: 20, // Limit to recent files for better performance
+    take: 20,
   });
 
   const signedUrls = await Promise.all(

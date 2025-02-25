@@ -3,9 +3,11 @@
 import { getNurseries } from "@/app/actions/getNurseries";
 import getOutplants from "@/app/actions/getOutplants";
 import { getUniqueSpecies } from "@/app/actions/getGeneticMappings";
+import { getMonitoring } from "@/app/actions/getMonitoring";
 import { generateCSV } from "@/app/components/ReportGenerator";
 import { parseCoralId } from "@/app/lib/coral";
 import { OutplantResponse } from "@/app/types/files";
+import { MonitoringResponse } from "@/app/actions/getMonitoring";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { NurseryRow } from "@prisma/client";
@@ -42,6 +44,9 @@ interface NurseryGroup {
 
 export default function ReportsPage() {
   const [outplants, setOutplants] = useState<OutplantResponse[]>([]);
+  const [monitoringData, setMonitoringData] = useState<MonitoringResponse[]>(
+    []
+  );
   const [filters, setFilters] = useState<FilterState>({
     organizations: [],
     sites: [],
@@ -60,6 +65,7 @@ export default function ReportsPage() {
     useState<OutplantResponse | null>(null);
 
   const [includeNurseryMappings, setIncludeNurseryMappings] = useState(false);
+  const [includeMonitoringData, setIncludeMonitoringData] = useState(true);
   const [nurseries, setNurseries] = useState<NurseryGroup[]>([]);
   const [allSpecies, setAllSpecies] = useState<string[]>([]);
   const [isLoadingSpecies, setIsLoadingSpecies] = useState<boolean>(true);
@@ -74,6 +80,12 @@ export default function ReportsPage() {
     Promise.all([
       getOutplants().then(setOutplants),
       getNurseries().then((data) => setNurseries(data)),
+      getMonitoring()
+        .then(setMonitoringData)
+        .catch((err) => {
+          console.error("Error loading monitoring data:", err);
+          setMonitoringData([]);
+        }),
     ]);
   }, []);
 
@@ -364,6 +376,21 @@ export default function ReportsPage() {
                 Include Nursery Mappings
               </label>
             </div>
+            <div className="flex items-center space-x-2">
+              <input
+                id="includeMonitoring"
+                type="checkbox"
+                checked={includeMonitoringData}
+                onChange={(e) => setIncludeMonitoringData(e.target.checked)}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              />
+              <label
+                htmlFor="includeMonitoring"
+                className="text-sm text-gray-700"
+              >
+                Include Monitoring Data
+              </label>
+            </div>
           </div>
 
           <div className="mt-6 flex justify-end">
@@ -371,6 +398,7 @@ export default function ReportsPage() {
               onClick={() =>
                 generateCSV(
                   filteredOutplants,
+                  includeMonitoringData ? monitoringData : [],
                   includeNurseryMappings ? nurseries : []
                 )
               }
@@ -659,6 +687,144 @@ export default function ReportsPage() {
             </div>
           </Dialog>
         </Transition>
+
+        {monitoringData.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Monitoring Data</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Site
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Event Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Outplanting Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Monitoring Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Initial Quantity
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quantity Survived
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Survival Rate
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {/* Group monitoring entries by event ID for easy reference */}
+                  {(() => {
+                    // Group by event ID and sort dates within each group
+                    const eventGroups = new Map<string, MonitoringResponse[]>();
+
+                    monitoringData
+                      .filter((entry) => entry.outplantingEvent)
+                      .forEach((entry) => {
+                        if (!eventGroups.has(entry.eventId)) {
+                          eventGroups.set(entry.eventId, []);
+                        }
+                        eventGroups.get(entry.eventId)?.push(entry);
+                      });
+
+                    eventGroups.forEach((entries) => {
+                      entries.sort(
+                        (a, b) =>
+                          new Date(a.date).getTime() -
+                          new Date(b.date).getTime()
+                      );
+                    });
+
+                    return Array.from(eventGroups.entries())
+                      .sort((a, b) => {
+                        const latestDateA = new Date(
+                          a[1][a[1].length - 1].date
+                        );
+                        const latestDateB = new Date(
+                          b[1][b[1].length - 1].date
+                        );
+                        return latestDateB.getTime() - latestDateA.getTime();
+                      })
+                      .flatMap(([, entries]) => {
+                        return entries.map((entry, entryIndex) => {
+                          const event = entry.outplantingEvent!;
+                          const qtySurvived =
+                            typeof entry.qtySurvived === "number"
+                              ? entry.qtySurvived
+                              : 0;
+                          console.log(
+                            `Entry ${entry.id} - Qty Survived:`,
+                            qtySurvived,
+                            "Raw value:",
+                            entry.qtySurvived
+                          );
+
+                          const survivalRate =
+                            event.initialQuantity > 0
+                              ? Math.round(
+                                  (qtySurvived / event.initialQuantity) * 100
+                                )
+                              : 0;
+
+                          let rateColor = "text-red-600";
+                          if (survivalRate >= 70) rateColor = "text-green-600";
+                          else if (survivalRate >= 40)
+                            rateColor = "text-yellow-600";
+
+                          const isFirstOfGroup = entryIndex === 0;
+
+                          return (
+                            <tr
+                              key={entry.id}
+                              className={`hover:bg-gray-50 ${
+                                isFirstOfGroup
+                                  ? "border-t-2 border-gray-300"
+                                  : ""
+                              }`}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {event.siteName}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {event.eventName}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {new Date(event.date).toLocaleDateString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {new Date(entry.date).toLocaleDateString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {event.initialQuantity}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="font-semibold">
+                                  {typeof entry.qtySurvived === "number"
+                                    ? entry.qtySurvived
+                                    : 0}
+                                </span>
+                              </td>
+                              <td
+                                className={`px-6 py-4 whitespace-nowrap font-bold ${rateColor}`}
+                              >
+                                {survivalRate}%
+                              </td>
+                            </tr>
+                          );
+                        });
+                      });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Results Summary</h2>
