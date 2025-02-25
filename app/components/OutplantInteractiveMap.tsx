@@ -174,31 +174,34 @@ export default function OutplantInteractiveMap(props: {
                 <Popup
                   longitude={Number(popupInfo.coordinates.trim().split(",")[0])}
                   latitude={Number(popupInfo.coordinates.trim().split(",")[1])}
-                  anchor="top"
+                  anchor="bottom"
+                  closeOnClick={false}
+                  closeButton={true}
                   onClose={() => setPopupInfo(null)}
-                  style={{ maxWidth: "400px" }}
+                  maxWidth="320px"
+                  offset={25}
                 >
-                  <div className="p-4 font-sans" style={{ width: "320px" }}>
-                    <h3 className="text-lg font-bold text-gray-800 mb-3">
+                  <div className="p-2 font-sans w-full max-w-[300px]">
+                    <h3 className="text-lg font-bold text-gray-800 mb-3 break-words">
                       {popupInfo.reefName}
                     </h3>
 
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
+                      <div className="grid grid-cols-[auto,1fr] gap-2">
                         <span className="font-medium">Site:</span>
-                        <span>{popupInfo.siteName}</span>
+                        <span className="text-right">{popupInfo.siteName}</span>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="grid grid-cols-[auto,1fr] gap-2">
                         <span className="font-medium">Date:</span>
-                        <span>
+                        <span className="text-right">
                           {new Date(popupInfo.date).toLocaleDateString()}
                         </span>
                       </div>
 
-                      <div className="flex justify-between">
+                      <div className="grid grid-cols-[auto,1fr] gap-2">
                         <span className="font-medium">Contact:</span>
-                        <span>{popupInfo.contact}</span>
+                        <span className="text-right">{popupInfo.contact}</span>
                       </div>
                     </div>
 
@@ -208,26 +211,26 @@ export default function OutplantInteractiveMap(props: {
                         {mergeGenetics(popupInfo.genetics).map((genetic) => (
                           <div
                             key={genetic.genotype}
-                            className="flex items-center justify-between text-sm py-1"
+                            className="grid grid-cols-[1fr,auto] items-center gap-2 text-sm py-1"
                           >
                             <div className="flex flex-col">
-                              <span className="text-gray-900">
+                              <span className="text-gray-900 break-words">
                                 {parseCoralId(genetic.genotype)}
                               </span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-500 break-all">
                                 ID: {genetic.genotype}
                               </span>
                             </div>
-                            <span className="ml-2 whitespace-nowrap">
+                            <span className="whitespace-nowrap">
                               {genetic.quantity} colonies
                             </span>
                           </div>
                         ))}
                       </div>
 
-                      <div className="mt-3 pt-3 border-t border-gray-200 font-medium flex justify-between">
+                      <div className="mt-3 pt-3 border-t border-gray-200 font-medium grid grid-cols-[auto,1fr] gap-2">
                         <span>Total:</span>
-                        <span>
+                        <span className="text-right">
                           {popupInfo.genetics.reduce(
                             (sum, g) => sum + g.quantity,
                             0
