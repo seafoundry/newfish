@@ -92,6 +92,7 @@ model User {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime
   clerkUserId    String           @unique
+  godMode        Boolean          @default(false)
   FileUpload     FileUpload[]
   GeneticMapping GeneticMapping[]
 }
@@ -102,6 +103,7 @@ model GeneticsRow {
   localIdGenetProp String
   additionalData   Json
   accessionNumber  String?
+  species          String?
   GeneticsFile     GeneticsFile @relation(fields: [fileUploadId], references: [id])
 
   @@index([fileUploadId])

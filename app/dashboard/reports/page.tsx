@@ -2,8 +2,9 @@
 
 import { getNurseries } from "@/app/actions/getNurseries";
 import getOutplants from "@/app/actions/getOutplants";
+import { getUniqueSpecies } from "@/app/actions/getGeneticMappings";
 import { generateCSV } from "@/app/components/ReportGenerator";
-import { listAllSpecies, parseCoralId } from "@/app/lib/coral";
+import { parseCoralId } from "@/app/lib/coral";
 import { OutplantResponse } from "@/app/types/files";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -60,18 +61,55 @@ export default function ReportsPage() {
 
   const [includeNurseryMappings, setIncludeNurseryMappings] = useState(false);
   const [nurseries, setNurseries] = useState<NurseryGroup[]>([]);
+  const [allSpecies, setAllSpecies] = useState<string[]>([]);
+  const [isLoadingSpecies, setIsLoadingSpecies] = useState<boolean>(true);
 
   const allOrganizations = [...new Set(outplants.map((o) => o.contact))];
   const allSites = [...new Set(outplants.map((o) => o.siteName))];
-  const allSpecies = listAllSpecies();
   const allGenotypes = [
     ...new Set(outplants.flatMap((o) => o.genetics.map((g) => g.genotype))),
   ];
 
   useEffect(() => {
-    getOutplants().then(setOutplants);
-    getNurseries().then((data) => setNurseries(data));
+    Promise.all([
+      getOutplants().then(setOutplants),
+      getNurseries().then((data) => setNurseries(data)),
+    ]);
   }, []);
+
+  useEffect(() => {
+    async function loadSpecies() {
+      try {
+        setIsLoadingSpecies(true);
+        const uploadedSpecies = await getUniqueSpecies();
+
+        const outplantSpecies = new Set<string>();
+        outplants.forEach((outplant) => {
+          outplant.genetics.forEach((genetic) => {
+            try {
+              const species = parseCoralId(genetic.genotype);
+              if (species && species !== genetic.genotype) {
+                outplantSpecies.add(species);
+              }
+            } catch {}
+          });
+        });
+
+        const combinedSpecies = [
+          ...new Set([...uploadedSpecies, ...outplantSpecies]),
+        ].sort();
+        setAllSpecies(combinedSpecies);
+      } catch (error) {
+        console.error("Failed to load species:", error);
+      } finally {
+        setIsLoadingSpecies(false);
+      }
+    }
+
+    if (outplants.length > 0) {
+      loadSpecies();
+    }
+  }, [outplants]);
 
   const filteredOutplants = outplants.filter((outplant) => {
     const dateInRange =
@@ -214,12 +252,19 @@ export default function ReportsPage() {
                   );
                   setFilters((prev) => ({ ...prev, species: values }));
                 }}
+                disabled={isLoadingSpecies}
               >
-                {allSpecies.map((species) => (
-                  <option key={species} value={species}>
-                    {species}
-                  </option>
-                ))}
+                {isLoadingSpecies ? (
+                  <option>Loading species...</option>
+                ) : allSpecies.length > 0 ? (
+                  allSpecies.map((species) => (
+                    <option key={species} value={species}>
+                      {species}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No species found</option>
+                )}
               </select>
             </div>
 

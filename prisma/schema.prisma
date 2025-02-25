@@ -60,6 +60,7 @@ model GeneticsRow {
   fileUploadId     String
   localIdGenetProp String
   accessionNumber  String?
+  species          String?
   additionalData   Json
 
   @@index([fileUploadId])

@@ -1,12 +1,13 @@
 "use client";
 
 import "mapbox-gl/dist/mapbox-gl.css"; // this took me a while to figure out!
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Map, Marker, NavigationControl, Popup } from "react-map-gl";
-import { listAllSpecies, parseCoralId } from "../lib/coral";
+import { parseCoralId } from "../lib/coral";
 import { Genetic, OutplantResponse } from "../types/files";
 import OutplantDetailedTable from "./OutplantDetailedTable";
 import { generateCSV } from "./ReportGenerator";
+import { getUniqueSpecies } from "../actions/getGeneticMappings";
 
 const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
   return Object.values(
@@ -23,8 +24,6 @@ const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
   );
 };
 
-const species = ["All Species", ...listAllSpecies()];
-
 export default function OutplantInteractiveMap(props: {
   outplants: OutplantResponse[];
 }) {
@@ -33,6 +32,40 @@ export default function OutplantInteractiveMap(props: {
   const [endDate, setEndDate] = useState<string>("");
   const [selectedOrg, setSelectedOrg] = useState<string>("All Organizations");
   const [selectedSpecies, setSelectedSpecies] = useState<string>("All Species");
+  const [speciesList, setSpeciesList] = useState<string[]>([]);
+  const [isLoadingSpecies, setIsLoadingSpecies] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function loadSpecies() {
+      try {
+        setIsLoadingSpecies(true);
+        const uploadedSpecies = await getUniqueSpecies();
+
+        const outplantSpecies = new Set<string>();
+        props.outplants.forEach((outplant) => {
+          outplant.genetics.forEach((genetic) => {
+            try {
+              const species = parseCoralId(genetic.genotype);
+              if (species && species !== genetic.genotype) {
+                outplantSpecies.add(species);
+              }
+            } catch {}
+          });
+        });
+
+        const combinedSpecies = [
+          ...new Set([...uploadedSpecies, ...outplantSpecies]),
+        ].sort();
+        setSpeciesList(["All Species", ...combinedSpecies]);
+      } catch (error) {
+        console.error("Failed to load species:", error);
+      } finally {
+        setIsLoadingSpecies(false);
+      }
+    }
+
+    loadSpecies();
+  }, [props.outplants]);
 
   const organizations = [
     "All Organizations",
@@ -133,12 +166,17 @@ export default function OutplantInteractiveMap(props: {
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   value={selectedSpecies}
                   onChange={(e) => setSelectedSpecies(e.target.value)}
+                  disabled={isLoadingSpecies}
                 >
-                  {species.map((species) => (
-                    <option key={species} value={species}>
-                      {species}
-                    </option>
-                  ))}
+                  {isLoadingSpecies ? (
+                    <option>Loading species...</option>
+                  ) : (
+                    speciesList.map((species) => (
+                      <option key={species} value={species}>
+                        {species}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             </form>

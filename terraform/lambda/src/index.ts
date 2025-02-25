@@ -152,6 +152,7 @@ export async function handler(event: S3Event) {
             data: records.map((record: any) => {
               const localIdGenetProp = record["Local ID/Genet Propagation"];
               const accessionNumber = record["AccessionNumber"] || "None"; // this might not be included
+              const species = record["Species"];
 
               const additionalData = { ...record };
               delete additionalData["Local ID/Genet Propagation"];
@@ -163,6 +164,7 @@ export async function handler(event: S3Event) {
                 fileUploadId: geneticsFile.id,
                 localIdGenetProp,
                 accessionNumber,
+                species,
                 additionalData,
               } as GeneticsRow;
             }),
