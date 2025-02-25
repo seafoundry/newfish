@@ -21,7 +21,7 @@ const requiredColumns = {
   Genetics: ["Local ID/Genet Propagation"],
   Nursery: ["Local ID", "Quantity", "Nursery"],
   Outplanting: ["Local ID", "Quantity", "Tag"],
-  Monitoring: [],
+  Monitoring: ["Qty Survived"],
 };
 
 const validateFileColumns = (
@@ -29,11 +29,6 @@ const validateFileColumns = (
   category: FileCategory
 ): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    if (category === "Monitoring") {
-      resolve(true);
-      return;
-    }
-
     Papa.parse(file, {
       header: true,
       preview: 1,
@@ -66,7 +61,7 @@ const templateHeaders = {
   Genetics: ["Local ID/Genet Propogation", "AccessionNumber"],
   Nursery: ["Local ID", "Quantity", "Nursery"],
   Outplanting: ["Local ID", "Quantity", "Tag"],
-  Monitoring: ["Data Column 1", "Data Column 2"],
+  Monitoring: ["Local ID", "Qty Survived", "Notes"],
 };
 
 const downloadTemplate = (category: FileCategory) => {

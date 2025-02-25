@@ -150,6 +150,7 @@ model MonitoringRow {
   id             String         @id @default(cuid())
   monitoringFile MonitoringFile @relation(fields: [fileUploadId], references: [id])
   fileUploadId   String
+  QtySurvived    Int            @default(0)
   additionalData Json
 
   @@index([fileUploadId])

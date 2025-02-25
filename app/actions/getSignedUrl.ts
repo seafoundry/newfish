@@ -51,7 +51,8 @@ export async function getSignedUrl(
         data: {
           id: fileUploadId,
           userId: dbUser.id,
-          fileName: fileNameWithTimestamp,
+          fileName: fileName,
+          fileS3Name: fileNameWithTimestamp,
           mimeType: fileType,
           category: category as FileCategory,
           updatedAt: new Date(),

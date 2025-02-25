@@ -1,5 +1,10 @@
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { GeneticsRow, NurseryRow, PrismaClient } from "@prisma/client";
+import {
+  GeneticsRow,
+  MonitoringRow,
+  NurseryRow,
+  PrismaClient,
+} from "@prisma/client";
 import { S3Event } from "aws-lambda";
 import { randomUUID } from "crypto";
 import { parse } from "csv-parse/sync";
@@ -273,11 +278,15 @@ export async function handler(event: S3Event) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
               const { ...rest } = record;
+
+              const quantitySurvived = parseInt(record["Qty Survived"]);
+
               return {
                 id: randomUUID(),
                 fileUploadId: file.id,
+                QtySurvived: quantitySurvived,
                 additionalData: rest,
-              };
+              } as MonitoringRow;
             }),
           });
         });

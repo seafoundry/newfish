@@ -113,6 +113,7 @@ model MonitoringRow {
   id             String         @id
   fileUploadId   String
   additionalData Json
+  QtySurvived    Int            @default(0)
   MonitoringFile MonitoringFile @relation(fields: [fileUploadId], references: [id])
 
   @@index([fileUploadId])
