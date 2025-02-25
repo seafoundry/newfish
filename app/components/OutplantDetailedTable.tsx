@@ -23,8 +23,6 @@ export default function OutplantDetailedTable(props: {
         genotype: genetic.genotype,
         accessionNumber: genetic.assessionId,
         colonies: genetic.quantity,
-        date: new Date(outplant.date).toLocaleDateString(),
-        submitter: outplant.contact,
       };
     })
   );
@@ -52,12 +50,6 @@ export default function OutplantDetailedTable(props: {
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Colonies
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Collection Date
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Submitter
                     </th>
                   </tr>
                 </thead>
@@ -87,12 +79,6 @@ export default function OutplantDetailedTable(props: {
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         {row.colonies}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {row.date}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                        {row.submitter}
                       </td>
                     </tr>
                   ))}
