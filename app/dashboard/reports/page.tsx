@@ -50,7 +50,7 @@ export default function ReportsPage() {
   const [filters, setFilters] = useState<FilterState>({
     organizations: [],
     sites: [],
-    species: [],
+    species: ["All Species"],
     genotypes: [],
     startDate: "",
     endDate: "",
@@ -70,9 +70,13 @@ export default function ReportsPage() {
   const [allSpecies, setAllSpecies] = useState<string[]>([]);
   const [isLoadingSpecies, setIsLoadingSpecies] = useState<boolean>(true);
 
-  const allOrganizations = [...new Set(outplants.map((o) => o.contact))];
-  const allSites = [...new Set(outplants.map((o) => o.siteName))];
+  const allOrganizations = [
+    "All Organizations",
+    ...new Set(outplants.map((o) => o.contact)),
+  ];
+  const allSites = ["All Sites", ...new Set(outplants.map((o) => o.siteName))];
   const allGenotypes = [
+    "All Genotypes",
     ...new Set(outplants.flatMap((o) => o.genetics.map((g) => g.genotype))),
   ];
 
@@ -108,6 +112,7 @@ export default function ReportsPage() {
         });
 
         const combinedSpecies = [
+          "All Species",
           ...new Set([...uploadedSpecies, ...outplantSpecies]),
         ].sort();
         setAllSpecies(combinedSpecies);
@@ -132,20 +137,35 @@ export default function ReportsPage() {
 
     const matchesOrg =
       filters.organizations.length === 0 ||
+      filters.organizations.includes("All Organizations") ||
       filters.organizations.includes(outplant.contact);
 
     const matchesSite =
-      filters.sites.length === 0 || filters.sites.includes(outplant.siteName);
+      filters.sites.length === 0 ||
+      filters.sites.includes("All Sites") ||
+      filters.sites.includes(outplant.siteName);
 
     const matchesSpecies =
       filters.species.length === 0 ||
+      filters.species.includes("All Species") ||
       outplant.genetics.some((g) => {
-        const species = parseCoralId(g.genotype);
-        return filters.species.includes(species);
+        if (!g.genotype) return false;
+
+        try {
+          const species = parseCoralId(g.genotype);
+          return filters.species.some(
+            (s) =>
+              s === "All Species" || species?.toLowerCase() === s.toLowerCase()
+          );
+        } catch (error) {
+          console.error("Error parsing coral ID:", error, g.genotype);
+          return false;
+        }
       });
 
     const matchesGenotype =
       filters.genotypes.length === 0 ||
+      filters.genotypes.includes("All Genotypes") ||
       outplant.genetics.some((g) => filters.genotypes.includes(g.genotype));
 
     const matchesBoundingBox =
@@ -161,6 +181,8 @@ export default function ReportsPage() {
       matchesBoundingBox
     );
   });
+
+  const applyFilters = () => {};
 
   const updateBoundingBox = (field: keyof BoundingBox, value: string) => {
     setFilters((prev) => ({
@@ -200,200 +222,297 @@ export default function ReportsPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6">Outplanting Reports</h1>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Organizations
-              </label>
-              <select
-                multiple
-                className="form-multiselect w-full rounded-md"
-                value={filters.organizations}
-                onChange={(e) => {
-                  const values = Array.from(
-                    e.target.selectedOptions,
-                    (option) => option.value
-                  );
-                  setFilters((prev) => ({ ...prev, organizations: values }));
-                }}
-              >
-                {allOrganizations.map((org) => (
-                  <option key={org} value={org}>
-                    {org}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sites
-              </label>
-              <select
-                multiple
-                className="form-multiselect w-full rounded-md"
-                value={filters.sites}
-                onChange={(e) => {
-                  const values = Array.from(
-                    e.target.selectedOptions,
-                    (option) => option.value
-                  );
-                  setFilters((prev) => ({ ...prev, sites: values }));
-                }}
-              >
-                {allSites.map((site) => (
-                  <option key={site} value={site}>
-                    {site}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Species
-              </label>
-              <select
-                multiple
-                className="form-multiselect w-full rounded-md"
-                value={filters.species}
-                onChange={(e) => {
-                  const values = Array.from(
-                    e.target.selectedOptions,
-                    (option) => option.value
-                  );
-                  setFilters((prev) => ({ ...prev, species: values }));
-                }}
-                disabled={isLoadingSpecies}
-              >
-                {isLoadingSpecies ? (
-                  <option>Loading species...</option>
-                ) : allSpecies.length > 0 ? (
-                  allSpecies.map((species) => (
-                    <option key={species} value={species}>
-                      {species}
+          <div className="bg-gray-100 p-4 rounded-lg mb-6">
+            <h2 className="text-lg font-semibold mb-4">Filter Options</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="bg-white p-4 rounded shadow-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Organizations
+                </label>
+                <select
+                  multiple
+                  className="form-multiselect w-full rounded-md border-gray-300"
+                  value={filters.organizations}
+                  onChange={(e) => {
+                    const values = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value
+                    );
+                    if (values.includes("All Organizations")) {
+                      setFilters((prev) => ({
+                        ...prev,
+                        organizations: ["All Organizations"],
+                      }));
+                    } else {
+                      setFilters((prev) => ({
+                        ...prev,
+                        organizations: values,
+                      }));
+                    }
+                  }}
+                  size={5}
+                >
+                  {allOrganizations.map((org) => (
+                    <option key={org} value={org}>
+                      {org}
                     </option>
-                  ))
-                ) : (
-                  <option disabled>No species found</option>
-                )}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Date Range
-              </label>
-              <input
-                type="date"
-                className="form-input w-full rounded-md"
-                value={filters.startDate}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, startDate: e.target.value }))
-                }
-              />
-              <input
-                type="date"
-                className="form-input w-full rounded-md"
-                value={filters.endDate}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, endDate: e.target.value }))
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Coordinate Boundaries
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  placeholder="Min Lat"
-                  className="form-input rounded-md"
-                  value={filters.boundingBox.minLat ?? ""}
-                  onChange={(e) => updateBoundingBox("minLat", e.target.value)}
-                />
-                <input
-                  type="number"
-                  placeholder="Max Lat"
-                  className="form-input rounded-md"
-                  value={filters.boundingBox.maxLat ?? ""}
-                  onChange={(e) => updateBoundingBox("maxLat", e.target.value)}
-                />
-                <input
-                  type="number"
-                  placeholder="Min Lng"
-                  className="form-input rounded-md"
-                  value={filters.boundingBox.minLng ?? ""}
-                  onChange={(e) => updateBoundingBox("minLng", e.target.value)}
-                />
-                <input
-                  type="number"
-                  placeholder="Max Lng"
-                  className="form-input rounded-md"
-                  value={filters.boundingBox.maxLng ?? ""}
-                  onChange={(e) => updateBoundingBox("maxLng", e.target.value)}
-                />
+                  ))}
+                </select>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Genotypes
-              </label>
-              <select
-                multiple
-                className="form-multiselect w-full rounded-md"
-                value={filters.genotypes}
-                onChange={(e) => {
-                  const values = Array.from(
-                    e.target.selectedOptions,
-                    (option) => option.value
-                  );
-                  setFilters((prev) => ({ ...prev, genotypes: values }));
-                }}
-              >
-                {allGenotypes.map((genotype) => (
-                  <option key={genotype} value={genotype}>
-                    {genotype}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                id="includeMappings"
-                type="checkbox"
-                checked={includeNurseryMappings}
-                onChange={(e) => setIncludeNurseryMappings(e.target.checked)}
-                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-              />
-              <label
-                htmlFor="includeMappings"
-                className="text-sm text-gray-700"
-              >
-                Include Nursery Mappings
-              </label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                id="includeMonitoring"
-                type="checkbox"
-                checked={includeMonitoringData}
-                onChange={(e) => setIncludeMonitoringData(e.target.checked)}
-                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-              />
-              <label
-                htmlFor="includeMonitoring"
-                className="text-sm text-gray-700"
-              >
-                Include Monitoring Data
-              </label>
+              <div className="bg-white p-4 rounded shadow-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sites
+                </label>
+                <select
+                  multiple
+                  className="form-multiselect w-full rounded-md border-gray-300"
+                  value={filters.sites}
+                  onChange={(e) => {
+                    const values = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value
+                    );
+                    if (values.includes("All Sites")) {
+                      setFilters((prev) => ({ ...prev, sites: ["All Sites"] }));
+                    } else {
+                      setFilters((prev) => ({ ...prev, sites: values }));
+                    }
+                  }}
+                  size={5}
+                >
+                  {allSites.map((site) => (
+                    <option key={site} value={site}>
+                      {site}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-white p-4 rounded shadow-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Species
+                </label>
+                <select
+                  multiple
+                  className="form-multiselect w-full rounded-md border-gray-300"
+                  value={filters.species}
+                  onChange={(e) => {
+                    const values = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value
+                    );
+                    if (values.includes("All Species")) {
+                      setFilters((prev) => ({
+                        ...prev,
+                        species: ["All Species"],
+                      }));
+                    } else {
+                      setFilters((prev) => ({ ...prev, species: values }));
+                    }
+                  }}
+                  disabled={isLoadingSpecies}
+                  size={5}
+                >
+                  {isLoadingSpecies ? (
+                    <option>Loading species...</option>
+                  ) : allSpecies.length > 0 ? (
+                    allSpecies.map((species) => (
+                      <option key={species} value={species}>
+                        {species}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No species found</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="bg-white p-4 rounded shadow-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date Range
+                </label>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-gray-500 block">
+                      Start Date:
+                    </label>
+                    <input
+                      type="date"
+                      className="form-input w-full rounded-md border-gray-300"
+                      value={filters.startDate}
+                      onChange={(e) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          startDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block">
+                      End Date:
+                    </label>
+                    <input
+                      type="date"
+                      className="form-input w-full rounded-md border-gray-300"
+                      value={filters.endDate}
+                      onChange={(e) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          endDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded shadow-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Coordinate Boundaries
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500 block">
+                      Min Lat:
+                    </label>
+                    <input
+                      type="number"
+                      className="form-input w-full rounded-md border-gray-300"
+                      value={filters.boundingBox.minLat ?? ""}
+                      onChange={(e) =>
+                        updateBoundingBox("minLat", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block">
+                      Max Lat:
+                    </label>
+                    <input
+                      type="number"
+                      className="form-input w-full rounded-md border-gray-300"
+                      value={filters.boundingBox.maxLat ?? ""}
+                      onChange={(e) =>
+                        updateBoundingBox("maxLat", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block">
+                      Min Lng:
+                    </label>
+                    <input
+                      type="number"
+                      className="form-input w-full rounded-md border-gray-300"
+                      value={filters.boundingBox.minLng ?? ""}
+                      onChange={(e) =>
+                        updateBoundingBox("minLng", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block">
+                      Max Lng:
+                    </label>
+                    <input
+                      type="number"
+                      className="form-input w-full rounded-md border-gray-300"
+                      value={filters.boundingBox.maxLng ?? ""}
+                      onChange={(e) =>
+                        updateBoundingBox("maxLng", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded shadow-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Genotypes
+                </label>
+                <select
+                  multiple
+                  className="form-multiselect w-full rounded-md border-gray-300"
+                  value={filters.genotypes}
+                  onChange={(e) => {
+                    const values = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value
+                    );
+                    if (values.includes("All Genotypes")) {
+                      setFilters((prev) => ({
+                        ...prev,
+                        genotypes: ["All Genotypes"],
+                      }));
+                    } else {
+                      setFilters((prev) => ({ ...prev, genotypes: values }));
+                    }
+                  }}
+                  size={5}
+                >
+                  {allGenotypes.map((genotype) => (
+                    <option key={genotype} value={genotype}>
+                      {genotype}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-white p-4 rounded shadow-sm flex flex-col justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Data Inclusion Options
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        id="includeMappings"
+                        type="checkbox"
+                        checked={includeNurseryMappings}
+                        onChange={(e) =>
+                          setIncludeNurseryMappings(e.target.checked)
+                        }
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <label
+                        htmlFor="includeMappings"
+                        className="text-sm text-gray-700"
+                      >
+                        Include Nursery Mappings
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        id="includeMonitoring"
+                        type="checkbox"
+                        checked={includeMonitoringData}
+                        onChange={(e) =>
+                          setIncludeMonitoringData(e.target.checked)
+                        }
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <label
+                        htmlFor="includeMonitoring"
+                        className="text-sm text-gray-700"
+                      >
+                        Include Monitoring Data
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex justify-end space-x-4">
+            <button
+              onClick={applyFilters}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              Apply Filters
+            </button>
             <button
               onClick={() =>
                 generateCSV(
@@ -530,63 +649,82 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Site
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Date
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Species
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Total Corals
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredOutplants.map((outplant) => (
-                <tr
-                  key={outplant.id}
-                  onClick={() => setSelectedOutplant(outplant)}
-                  className="cursor-pointer hover:bg-gray-50"
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {outplant.siteName}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {new Date(outplant.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {[
-                      ...new Set(
-                        outplant.genetics.map((g) => parseCoralId(g.genotype))
-                      ),
-                    ].join(", ")}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {outplant.genetics.reduce((sum, g) => sum + g.quantity, 0)}
-                  </td>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">Outplanting Events</h2>
+          <div className="overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Site
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Date
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Species
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Total Corals
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredOutplants.length > 0 ? (
+                  filteredOutplants.map((outplant) => (
+                    <tr
+                      key={outplant.id}
+                      onClick={() => setSelectedOutplant(outplant)}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {outplant.siteName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {new Date(outplant.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {[
+                          ...new Set(
+                            outplant.genetics.map((g) =>
+                              parseCoralId(g.genotype)
+                            )
+                          ),
+                        ].join(", ")}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {outplant.genetics.reduce(
+                          (sum, g) => sum + g.quantity,
+                          0
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
+                      No outplanting events match the current filters
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <Transition appear show={!!selectedOutplant} as={Fragment}>
@@ -688,7 +826,7 @@ export default function ReportsPage() {
           </Dialog>
         </Transition>
 
-        {monitoringData.length > 0 && (
+        {monitoringData.length > 0 && includeMonitoringData && (
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Monitoring Data</h2>
             <div className="overflow-x-auto">
@@ -708,6 +846,9 @@ export default function ReportsPage() {
                       Monitoring Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Species
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Initial Quantity
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -719,12 +860,34 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {/* Group monitoring entries by event ID for easy reference */}
                   {(() => {
-                    // Group by event ID and sort dates within each group
+                    const filteredOutplantIds = new Set(
+                      filteredOutplants.map((o) => o.id)
+                    );
+
+                    const filteredMonitoring = monitoringData.filter(
+                      (entry) =>
+                        entry.outplantingEvent &&
+                        filteredOutplantIds.has(entry.eventId)
+                    );
+
+                    if (filteredMonitoring.length === 0) {
+                      return (
+                        <tr>
+                          <td
+                            colSpan={8}
+                            className="px-6 py-4 text-center text-gray-500"
+                          >
+                            No monitoring data available for the current filter
+                            selection
+                          </td>
+                        </tr>
+                      );
+                    }
+
                     const eventGroups = new Map<string, MonitoringResponse[]>();
 
-                    monitoringData
+                    filteredMonitoring
                       .filter((entry) => entry.outplantingEvent)
                       .forEach((entry) => {
                         if (!eventGroups.has(entry.eventId)) {
@@ -751,19 +914,26 @@ export default function ReportsPage() {
                         );
                         return latestDateB.getTime() - latestDateA.getTime();
                       })
-                      .flatMap(([, entries]) => {
+                      .flatMap(([eventId, entries]) => {
+                        const associatedOutplant = filteredOutplants.find(
+                          (o) => o.id === eventId
+                        );
+                        const speciesNames = associatedOutplant
+                          ? [
+                              ...new Set(
+                                associatedOutplant.genetics.map((g) =>
+                                  parseCoralId(g.genotype)
+                                )
+                              ),
+                            ]
+                          : [];
+
                         return entries.map((entry, entryIndex) => {
                           const event = entry.outplantingEvent!;
                           const qtySurvived =
                             typeof entry.qtySurvived === "number"
                               ? entry.qtySurvived
                               : 0;
-                          console.log(
-                            `Entry ${entry.id} - Qty Survived:`,
-                            qtySurvived,
-                            "Raw value:",
-                            entry.qtySurvived
-                          );
 
                           const survivalRate =
                             event.initialQuantity > 0
@@ -799,6 +969,9 @@ export default function ReportsPage() {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 {new Date(entry.date).toLocaleDateString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {speciesNames.join(", ")}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 {event.initialQuantity}

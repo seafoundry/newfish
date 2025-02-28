@@ -77,6 +77,11 @@ export interface OutplantResponse {
   }[];
 }
 
+export interface PopupInfoWithMultipleEvents extends OutplantResponse {
+  hasMultipleEvents: boolean;
+  allOutplants: OutplantResponse[];
+}
+
 export interface Genetic {
   genotype: string;
   quantity: number;

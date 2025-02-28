@@ -69,22 +69,30 @@ export function parseCoralId(id: string): string {
     };
 
     const speciesCode = prefixMap[prefix];
-    if (!speciesCode) return id;
+    if (speciesCode && speciesMap[speciesCode]) {
+      return speciesMap[speciesCode];
+    }
 
-    return speciesMap[speciesCode] || id;
+    if (speciesMap[prefix]) {
+      return speciesMap[prefix];
+    }
+
+    return id;
   }
 
   const oldFormat = /^([A-Z]{2})(\d+)$/;
   const oldMatch = id.match(oldFormat);
 
-  if (!oldMatch) return id;
+  if (oldMatch) {
+    const prefix = oldMatch[1];
+    const speciesName = speciesMap[prefix];
 
-  const prefix = oldMatch[1];
-  const speciesName = speciesMap[prefix];
+    if (speciesName) {
+      return speciesName;
+    }
+  }
 
-  if (!speciesName) return id;
-
-  return speciesName;
+  return id;
 }
 
 export function splitSpeciesName(fullName: string): {
