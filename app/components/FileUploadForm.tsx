@@ -380,9 +380,14 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
                     key={file.id}
                     className="flex items-center justify-between bg-white p-2 rounded-md"
                   >
-                    <span className="text-sm text-gray-600 truncate flex-1">
-                      {file.fileName}
-                    </span>
+                    <div className="flex-1">
+                      <span className="text-sm text-gray-600 truncate block">
+                        {file.fileName}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {new Date(file.uploadDate).toLocaleDateString()} ({formatDistanceToNow(new Date(file.uploadDate), { addSuffix: true })})
+                      </span>
+                    </div>
                     {signedUrls.find((url) => url.fileId === file.id) && (
                       <a
                         href={
