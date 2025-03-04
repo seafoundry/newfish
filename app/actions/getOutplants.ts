@@ -41,6 +41,7 @@ export default async function getOutplants() {
         localIdGenetProp: true,
         accessionNumber: true,
         additionalData: true,
+        species: true,
       },
     });
 
@@ -53,9 +54,33 @@ export default async function getOutplants() {
       siteName: outplant.siteName,
       eventName: outplant.eventName,
       genetics: outplant.rows.map((row) => {
-        const geneticData = geneticsRows.find(
+        const exactGeneticData = geneticsRows.find(
           (genet) => genet.localIdGenetProp === row.genetId
         );
+
+        if (exactGeneticData) {
+          return {
+            genotype: row.genetId,
+            quantity: row.quantity,
+            grouping: row.grouping,
+            assessionId: exactGeneticData.accessionNumber || "None",
+            geneticDetails: exactGeneticData.additionalData as
+              | GeneticDetails
+              | undefined,
+          };
+        }
+
+        const localIdMatch = row.genetId.split("-")[0];
+        const matchingGeneticsByLocalId = geneticsRows.filter(
+          (genet) =>
+            genet.localIdGenetProp.startsWith(localIdMatch) ||
+            genet.localIdGenetProp === localIdMatch
+        );
+
+        const geneticData =
+          matchingGeneticsByLocalId.length > 0
+            ? matchingGeneticsByLocalId[0]
+            : null;
 
         return {
           genotype: row.genetId,
