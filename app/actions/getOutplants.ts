@@ -2,7 +2,14 @@
 
 import { currentUser } from "@clerk/nextjs/server";
 import { PrismaClient } from "@prisma/client";
-import { OutplantResponse, GeneticDetails } from "../types/files";
+import { parseCoralId } from "../lib/coral";
+import { GeneticDetails, OutplantResponse } from "../types/files";
+
+const makeUniqueGenotype = (genotype: string, grouping: string) => {
+  return genotype.includes(`__group_${grouping}`)
+    ? genotype
+    : `${genotype}__group_${grouping}`;
+};
 
 const prisma = new PrismaClient();
 
@@ -45,24 +52,41 @@ export default async function getOutplants() {
       },
     });
 
-    const outplants: OutplantResponse[] = outplantFiles.map((outplant) => ({
-      id: outplant.id,
-      coordinates: outplant.eventCenterpoint,
-      contact: outplant.email,
-      date: outplant.date,
-      reefName: outplant.reefName,
-      siteName: outplant.siteName,
-      eventName: outplant.eventName,
-      genetics: outplant.rows.map((row) => {
+    const outplants: OutplantResponse[] = outplantFiles.map((outplant) => {
+      const rowsByLocalId = new Map<string, typeof outplant.rows>();
+
+      outplant.rows.forEach((row) => {
+        const localId = row.genetId.split("-")[0];
+        if (!rowsByLocalId.has(localId)) {
+          rowsByLocalId.set(localId, []);
+        }
+        rowsByLocalId.get(localId)!.push(row);
+      });
+
+      const processedGenetics = outplant.rows.map((row) => {
         const exactGeneticData = geneticsRows.find(
           (genet) => genet.localIdGenetProp === row.genetId
         );
 
+        const localId = row.genetId.split("-")[0];
+        let species = "";
+
+        try {
+          species = parseCoralId(row.genetId);
+        } catch {
+          console.warn(`Could not parse species from genotype: ${row.genetId}`);
+        }
+
+        const uniqueGenotype = makeUniqueGenotype(row.genetId, row.grouping);
+
         if (exactGeneticData) {
           return {
             genotype: row.genetId,
+            uniqueGenotype: uniqueGenotype,
             quantity: row.quantity,
             grouping: row.grouping,
+            localId: localId,
+            species: exactGeneticData.species || species,
             assessionId: exactGeneticData.accessionNumber || "None",
             geneticDetails: exactGeneticData.additionalData as
               | GeneticDetails
@@ -70,11 +94,10 @@ export default async function getOutplants() {
           };
         }
 
-        const localIdMatch = row.genetId.split("-")[0];
         const matchingGeneticsByLocalId = geneticsRows.filter(
           (genet) =>
-            genet.localIdGenetProp.startsWith(localIdMatch) ||
-            genet.localIdGenetProp === localIdMatch
+            genet.localIdGenetProp.startsWith(localId) ||
+            genet.localIdGenetProp === localId
         );
 
         const geneticData =
@@ -84,15 +107,29 @@ export default async function getOutplants() {
 
         return {
           genotype: row.genetId,
+          uniqueGenotype: uniqueGenotype,
           quantity: row.quantity,
           grouping: row.grouping,
+          localId: localId,
+          species: geneticData?.species || species,
           assessionId: geneticData?.accessionNumber || "None",
           geneticDetails: geneticData?.additionalData as
             | GeneticDetails
             | undefined,
         };
-      }),
-    }));
+      });
+
+      return {
+        id: outplant.id,
+        coordinates: outplant.eventCenterpoint,
+        contact: outplant.email,
+        date: outplant.date,
+        reefName: outplant.reefName,
+        siteName: outplant.siteName,
+        eventName: outplant.eventName,
+        genetics: processedGenetics,
+      };
+    });
 
     return outplants;
   } catch (error) {

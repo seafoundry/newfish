@@ -1,10 +1,20 @@
 "use client";
 
+import React, { useState } from "react";
+import { MonitoringResponse } from "../actions/getMonitoring";
 import { parseCoralId, splitSpeciesName } from "../lib/coral";
 import { OutplantResponse } from "../types/files";
-import { MonitoringResponse } from "../actions/getMonitoring";
-import { useState } from "react";
-import React from "react";
+
+interface GeneticWithDetails {
+  genus: string;
+  species: string;
+  genotype: string;
+  uniqueGenotype: string;
+  localId: string;
+  grouping: string;
+  accessionNumber: string;
+  colonies: number;
+}
 
 export default function OutplantDetailedTable(props: {
   outplants: OutplantResponse[];
@@ -12,12 +22,16 @@ export default function OutplantDetailedTable(props: {
   showSurvivalData?: boolean;
 }) {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"grouping" | "localId" | "species">(
+    "grouping"
+  );
 
   const eventGroups = props.outplants.map((outplant) => {
-    const genetics = outplant.genetics.map((genetic) => {
+    const genetics: GeneticWithDetails[] = outplant.genetics.map((genetic) => {
       let speciesInfo = { genus: "N/A", species: "N/A" };
       try {
-        const fullSpeciesName = parseCoralId(genetic.genotype);
+        const fullSpeciesName =
+          genetic.species || parseCoralId(genetic.genotype);
         speciesInfo = splitSpeciesName(fullSpeciesName);
       } catch {
         console.warn(`Could not parse genotype: ${genetic.genotype}`);
@@ -32,6 +46,11 @@ export default function OutplantDetailedTable(props: {
         genus: speciesInfo.genus,
         species: speciesInfo.species,
         genotype: genetic.genotype,
+        uniqueGenotype:
+          genetic.uniqueGenotype ||
+          `${genetic.genotype}__group_${genetic.grouping}`,
+        localId: genetic.localId,
+        grouping: genetic.grouping,
         accessionNumber: accessionNumber,
         colonies: genetic.quantity,
       };
@@ -45,15 +64,27 @@ export default function OutplantDetailedTable(props: {
     const geneticSurvivalData: Array<{
       genotype: string;
       localId: string;
+      grouping: string;
       survived: number;
       initial: number;
       rate: number;
-      level: "tag" | "localId" | "estimated";
+      level: "tag" | "localId" | "grouping" | "estimated";
     }> = [];
     const localIdSurvivalData = new Map<
       string,
       {
         localId: string;
+        survived: number;
+        initial: number;
+        rate: number;
+        tags: string[];
+      }
+    >();
+
+    const groupingSurvivalData = new Map<
+      string,
+      {
+        grouping: string;
         survived: number;
         initial: number;
         rate: number;
@@ -89,31 +120,112 @@ export default function OutplantDetailedTable(props: {
           );
         }
 
+        if (survivalDetails.byTag) {
+          const genotypeToGrouping = new Map<string, string>();
+          outplant.genetics.forEach((genetic) => {
+            genotypeToGrouping.set(genetic.genotype, genetic.grouping);
+          });
+
+          Object.entries(survivalDetails.byTag).forEach(([tag, data]) => {
+            const grouping = genotypeToGrouping.get(tag) || "unknown";
+            if (!groupingSurvivalData.has(grouping)) {
+              groupingSurvivalData.set(grouping, {
+                grouping,
+                survived: 0,
+                initial: 0,
+                rate: 0,
+                tags: [],
+              });
+            }
+
+            const groupData = groupingSurvivalData.get(grouping)!;
+            groupData.survived += data.survived;
+            groupData.initial += data.initial;
+            if (groupData.initial > 0) {
+              groupData.rate = Math.round(
+                (groupData.survived / groupData.initial) * 100
+              );
+            }
+            groupData.tags.push(tag);
+          });
+        }
+
         genetics.forEach((genetic) => {
           let survivalInfo = null;
-          const localId = genetic.genotype.split("-")[0];
+          const { localId, grouping } = genetic;
 
           if (
             survivalDetails.byTag &&
-            survivalDetails.byTag[genetic.genotype]
+            (survivalDetails.byTag[genetic.uniqueGenotype] ||
+              survivalDetails.byTag[genetic.genotype])
           ) {
+            const tagData =
+              survivalDetails.byTag[genetic.uniqueGenotype] ||
+              survivalDetails.byTag[genetic.genotype];
             survivalInfo = {
-              genotype: genetic.genotype,
+              genotype: genetic.uniqueGenotype,
               localId,
-              survived: survivalDetails.byTag[genetic.genotype].survived,
-              initial: survivalDetails.byTag[genetic.genotype].initial,
-              rate: survivalDetails.byTag[genetic.genotype].rate,
+              grouping,
+              survived: tagData.survived,
+              initial: tagData.initial,
+              rate: tagData.rate,
               level: "tag" as const,
             };
-          } else if (localId && localIdSurvivalData.has(localId)) {
-            const localIdData = localIdSurvivalData.get(localId);
-            if (localIdData) {
+          } else if (grouping && groupingSurvivalData.has(grouping)) {
+            const groupingData = groupingSurvivalData.get(grouping);
+            if (groupingData) {
+              const groupTotal = genetics
+                .filter((g) => g.grouping === grouping)
+                .reduce((sum, g) => sum + g.colonies, 0);
+
+              const proportionalSurvival =
+                groupTotal > 0
+                  ? Math.round(
+                      (genetic.colonies / groupTotal) * groupingData.survived
+                    )
+                  : 0;
+
               survivalInfo = {
                 genotype: genetic.genotype,
                 localId,
-                survived: localIdData.survived,
-                initial: localIdData.initial,
-                rate: localIdData.rate,
+                grouping,
+                survived: proportionalSurvival,
+                initial: genetic.colonies,
+                rate:
+                  genetic.colonies > 0
+                    ? Math.round(
+                        (proportionalSurvival / genetic.colonies) * 100
+                      )
+                    : 0,
+                level: "grouping" as const,
+              };
+            }
+          } else if (localId && localIdSurvivalData.has(localId)) {
+            const localIdData = localIdSurvivalData.get(localId);
+            if (localIdData) {
+              const localIdTotal = genetics
+                .filter((g) => g.localId === localId)
+                .reduce((sum, g) => sum + g.colonies, 0);
+
+              const proportionalSurvival =
+                localIdTotal > 0
+                  ? Math.round(
+                      (genetic.colonies / localIdTotal) * localIdData.survived
+                    )
+                  : 0;
+
+              survivalInfo = {
+                genotype: genetic.genotype,
+                localId,
+                grouping,
+                survived: proportionalSurvival,
+                initial: genetic.colonies,
+                rate:
+                  genetic.colonies > 0
+                    ? Math.round(
+                        (proportionalSurvival / genetic.colonies) * 100
+                      )
+                    : 0,
                 level: "localId" as const,
               };
             }
@@ -128,6 +240,7 @@ export default function OutplantDetailedTable(props: {
             survivalInfo = {
               genotype: genetic.genotype,
               localId,
+              grouping,
               survived: proportionalSurvival,
               initial: initialQty,
               rate:
@@ -144,6 +257,9 @@ export default function OutplantDetailedTable(props: {
         });
 
         geneticSurvivalData.sort((a, b) => {
+          if (a.grouping !== b.grouping) {
+            return a.grouping.localeCompare(b.grouping);
+          }
           if (a.localId !== b.localId) {
             return a.localId.localeCompare(b.localId);
           }
@@ -179,7 +295,44 @@ export default function OutplantDetailedTable(props: {
 
   return (
     <div className="max-w-7xl mx-auto p-4">
-      <div className="mt-8 flow-root">
+      <div className="mb-4">
+        <div className="flex items-center justify-end space-x-4">
+          <div className="text-sm text-gray-600">Group by:</div>
+          <div className="flex border rounded-md overflow-hidden">
+            <button
+              onClick={() => setViewMode("grouping")}
+              className={`px-3 py-1.5 text-sm ${
+                viewMode === "grouping"
+                  ? "bg-blue-500 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Tags
+            </button>
+            <button
+              onClick={() => setViewMode("localId")}
+              className={`px-3 py-1.5 text-sm ${
+                viewMode === "localId"
+                  ? "bg-blue-500 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Local ID
+            </button>
+            <button
+              onClick={() => setViewMode("species")}
+              className={`px-3 py-1.5 text-sm ${
+                viewMode === "species"
+                  ? "bg-blue-500 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Species
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 flow-root">
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
@@ -323,18 +476,184 @@ export default function OutplantDetailedTable(props: {
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 bg-white">
                                   {(() => {
+                                    const geneticsByGrouping: Record<
+                                      string,
+                                      {
+                                        genetics: GeneticWithDetails[];
+                                        localIds: string[];
+                                      }
+                                    > = {};
+
                                     const geneticsByLocalId: Record<
                                       string,
-                                      typeof event.genetics
-                                    > = {};
-                                    event.genetics.forEach((genetic) => {
-                                      const localId =
-                                        genetic.genotype.split("-")[0];
-                                      if (!geneticsByLocalId[localId]) {
-                                        geneticsByLocalId[localId] = [];
+                                      {
+                                        genetics: GeneticWithDetails[];
+                                        groupings: string[];
                                       }
-                                      geneticsByLocalId[localId].push(genetic);
+                                    > = {};
+
+                                    const geneticsBySpecies: Record<
+                                      string,
+                                      {
+                                        genetics: GeneticWithDetails[];
+                                        localIds: string[];
+                                        groupings: string[];
+                                      }
+                                    > = {};
+
+                                    const geneticsByLocalIdAndGroup: Record<
+                                      string,
+                                      Record<string, GeneticWithDetails[]>
+                                    > = {};
+
+                                    const geneticsByGroupingAndLocalId: Record<
+                                      string,
+                                      Record<string, GeneticWithDetails[]>
+                                    > = {};
+
+                                    const geneticsBySpeciesAndLocalId: Record<
+                                      string,
+                                      Record<string, GeneticWithDetails[]>
+                                    > = {};
+
+                                    event.genetics.forEach((genetic) => {
+                                      const grouping =
+                                        genetic.grouping || "unspecified";
+                                      const localId =
+                                        genetic.localId ||
+                                        genetic.genotype.split("-")[0];
+                                      const species =
+                                        `${genetic.genus} ${genetic.species}`.trim() ||
+                                        "Unknown Species";
+
+                                      if (!geneticsByGrouping[grouping]) {
+                                        geneticsByGrouping[grouping] = {
+                                          genetics: [],
+                                          localIds: [],
+                                        };
+                                        geneticsByLocalIdAndGroup[grouping] =
+                                          {};
+                                      }
+
+                                      geneticsByGrouping[
+                                        grouping
+                                      ].genetics.push(genetic);
+
+                                      if (
+                                        !geneticsByLocalIdAndGroup[grouping][
+                                          localId
+                                        ]
+                                      ) {
+                                        geneticsByLocalIdAndGroup[grouping][
+                                          localId
+                                        ] = [];
+                                        if (
+                                          !geneticsByGrouping[
+                                            grouping
+                                          ].localIds.includes(localId)
+                                        ) {
+                                          geneticsByGrouping[
+                                            grouping
+                                          ].localIds.push(localId);
+                                        }
+                                      }
+
+                                      geneticsByLocalIdAndGroup[grouping][
+                                        localId
+                                      ].push(genetic);
+
+                                      if (!geneticsByLocalId[localId]) {
+                                        geneticsByLocalId[localId] = {
+                                          genetics: [],
+                                          groupings: [],
+                                        };
+                                        geneticsByGroupingAndLocalId[localId] =
+                                          {};
+                                      }
+
+                                      geneticsByLocalId[localId].genetics.push(
+                                        genetic
+                                      );
+
+                                      if (
+                                        !geneticsByGroupingAndLocalId[localId][
+                                          grouping
+                                        ]
+                                      ) {
+                                        geneticsByGroupingAndLocalId[localId][
+                                          grouping
+                                        ] = [];
+                                        if (
+                                          !geneticsByLocalId[
+                                            localId
+                                          ].groupings.includes(grouping)
+                                        ) {
+                                          geneticsByLocalId[
+                                            localId
+                                          ].groupings.push(grouping);
+                                        }
+                                      }
+
+                                      geneticsByGroupingAndLocalId[localId][
+                                        grouping
+                                      ].push(genetic);
+
+                                      if (!geneticsBySpecies[species]) {
+                                        geneticsBySpecies[species] = {
+                                          genetics: [],
+                                          localIds: [],
+                                          groupings: [],
+                                        };
+                                        geneticsBySpeciesAndLocalId[species] =
+                                          {};
+                                      }
+
+                                      geneticsBySpecies[species].genetics.push(
+                                        genetic
+                                      );
+
+                                      if (
+                                        !geneticsBySpeciesAndLocalId[species][
+                                          localId
+                                        ]
+                                      ) {
+                                        geneticsBySpeciesAndLocalId[species][
+                                          localId
+                                        ] = [];
+                                        if (
+                                          !geneticsBySpecies[
+                                            species
+                                          ].localIds.includes(localId)
+                                        ) {
+                                          geneticsBySpecies[
+                                            species
+                                          ].localIds.push(localId);
+                                        }
+                                      }
+
+                                      geneticsBySpeciesAndLocalId[species][
+                                        localId
+                                      ].push(genetic);
+
+                                      if (
+                                        !geneticsBySpecies[
+                                          species
+                                        ].groupings.includes(grouping)
+                                      ) {
+                                        geneticsBySpecies[
+                                          species
+                                        ].groupings.push(grouping);
+                                      }
                                     });
+
+                                    const groupingStats: Record<
+                                      string,
+                                      {
+                                        initial: number;
+                                        survived: number;
+                                        rate: number;
+                                      }
+                                    > = {};
 
                                     const localIdStats: Record<
                                       string,
@@ -345,179 +664,213 @@ export default function OutplantDetailedTable(props: {
                                       }
                                     > = {};
 
+                                    const speciesStats: Record<
+                                      string,
+                                      {
+                                        initial: number;
+                                        survived: number;
+                                        rate: number;
+                                      }
+                                    > = {};
+
                                     if (event.monitoring?.geneticSurvivalData) {
+                                      Object.keys(geneticsByGrouping).forEach(
+                                        (grouping) => {
+                                          groupingStats[grouping] = {
+                                            initial: 0,
+                                            survived: 0,
+                                            rate: 0,
+                                          };
+                                        }
+                                      );
+
                                       Object.keys(geneticsByLocalId).forEach(
                                         (localId) => {
-                                          const genetics =
-                                            geneticsByLocalId[localId];
-                                          const survivalData =
-                                            event.monitoring?.geneticSurvivalData?.filter(
-                                              (sd) => sd.localId === localId
-                                            ) || [];
+                                          localIdStats[localId] = {
+                                            initial: 0,
+                                            survived: 0,
+                                            rate: 0,
+                                          };
+                                        }
+                                      );
 
-                                          if (survivalData.length > 0) {
-                                            const localIdSurvival =
-                                              survivalData.find(
-                                                (sd) => sd.level === "localId"
-                                              );
+                                      Object.keys(geneticsBySpecies).forEach(
+                                        (species) => {
+                                          speciesStats[species] = {
+                                            initial: 0,
+                                            survived: 0,
+                                            rate: 0,
+                                          };
+                                        }
+                                      );
 
-                                            if (localIdSurvival) {
-                                              localIdStats[localId] = {
-                                                initial:
-                                                  localIdSurvival.initial,
-                                                survived:
-                                                  localIdSurvival.survived,
-                                                rate: localIdSurvival.rate,
-                                              };
-                                            } else {
-                                              const initialTotal =
-                                                genetics.reduce(
-                                                  (
-                                                    sum: number,
-                                                    g: { colonies: number }
-                                                  ) => sum + g.colonies,
-                                                  0
-                                                );
-                                              const survivedTotal =
-                                                survivalData.reduce(
-                                                  (
-                                                    sum: number,
-                                                    sd: { survived: number }
-                                                  ) => sum + sd.survived,
-                                                  0
-                                                );
-                                              const rate =
-                                                initialTotal > 0
-                                                  ? Math.round(
-                                                      (survivedTotal /
-                                                        initialTotal) *
-                                                        100
-                                                    )
-                                                  : 0;
+                                      event.monitoring.geneticSurvivalData.forEach(
+                                        (survivalData) => {
+                                          const genetic = event.genetics.find(
+                                            (g) =>
+                                              g.uniqueGenotype ===
+                                                survivalData.genotype ||
+                                              g.genotype ===
+                                                survivalData.genotype
+                                          );
 
-                                              localIdStats[localId] = {
-                                                initial: initialTotal,
-                                                survived: survivedTotal,
-                                                rate: rate,
-                                              };
-                                            }
+                                          if (!genetic) return;
+
+                                          const grouping = genetic.grouping;
+                                          const localId = genetic.localId;
+                                          const species =
+                                            `${genetic.genus} ${genetic.species}`.trim() ||
+                                            "Unknown Species";
+
+                                          if (groupingStats[grouping]) {
+                                            groupingStats[grouping].initial +=
+                                              survivalData.initial;
+                                            groupingStats[grouping].survived +=
+                                              survivalData.survived;
                                           }
+
+                                          if (localIdStats[localId]) {
+                                            localIdStats[localId].initial +=
+                                              survivalData.initial;
+                                            localIdStats[localId].survived +=
+                                              survivalData.survived;
+                                          }
+
+                                          if (speciesStats[species]) {
+                                            speciesStats[species].initial +=
+                                              survivalData.initial;
+                                            speciesStats[species].survived +=
+                                              survivalData.survived;
+                                          }
+                                        }
+                                      );
+
+                                      Object.keys(groupingStats).forEach(
+                                        (key) => {
+                                          const stats = groupingStats[key];
+                                          stats.rate =
+                                            stats.initial > 0
+                                              ? Math.round(
+                                                  (stats.survived /
+                                                    stats.initial) *
+                                                    100
+                                                )
+                                              : 0;
+                                        }
+                                      );
+
+                                      Object.keys(localIdStats).forEach(
+                                        (key) => {
+                                          const stats = localIdStats[key];
+                                          stats.rate =
+                                            stats.initial > 0
+                                              ? Math.round(
+                                                  (stats.survived /
+                                                    stats.initial) *
+                                                    100
+                                                )
+                                              : 0;
+                                        }
+                                      );
+
+                                      Object.keys(speciesStats).forEach(
+                                        (key) => {
+                                          const stats = speciesStats[key];
+                                          stats.rate =
+                                            stats.initial > 0
+                                              ? Math.round(
+                                                  (stats.survived /
+                                                    stats.initial) *
+                                                    100
+                                                )
+                                              : 0;
                                         }
                                       );
                                     }
 
-                                    return Object.entries(
-                                      geneticsByLocalId
-                                    ).map(
-                                      ([localId, genetics]: [
-                                        string,
-                                        typeof event.genetics
-                                      ]) => {
-                                        const localIdStatData =
-                                          localIdStats[localId];
+                                    if (viewMode === "grouping") {
+                                      return Object.entries(
+                                        geneticsByGrouping
+                                      ).map(([grouping, groupData]) => {
+                                        const groupingStatData =
+                                          groupingStats[grouping];
 
                                         return (
                                           <React.Fragment
-                                            key={`localid-${localId}`}
+                                            key={`grouping-${grouping}`}
                                           >
-                                            {/* Local ID header row with survival stats */}
-                                            {props.showSurvivalData &&
-                                              localIdStatData && (
-                                                <tr className="bg-gray-50 text-xs font-semibold">
-                                                  <td
-                                                    colSpan={2}
-                                                    className="px-3 py-2 font-medium"
-                                                  >
-                                                    Local ID: {localId}
-                                                  </td>
-                                                  <td
-                                                    colSpan={1}
-                                                    className="px-3 py-2"
-                                                  >
-                                                    {genetics.length} Tag
-                                                    {genetics.length !== 1
-                                                      ? "s"
-                                                      : ""}
-                                                  </td>
-                                                  <td className="px-3 py-2">
-                                                    {genetics[0]
-                                                      ?.accessionNumber !==
-                                                    "None"
-                                                      ? genetics[0]
-                                                          ?.accessionNumber
-                                                      : "None"}
-                                                  </td>
-                                                  <td className="px-3 py-2">
-                                                    Total:{" "}
-                                                    {genetics.reduce(
-                                                      (
-                                                        sum: number,
-                                                        g: { colonies: number }
-                                                      ) => sum + g.colonies,
-                                                      0
-                                                    )}
-                                                  </td>
-                                                  {props.showSurvivalData &&
-                                                    event.monitoring
-                                                      ?.geneticSurvivalData && (
-                                                      <>
-                                                        <td className="px-3 py-2">
-                                                          Survived:{" "}
-                                                          {
-                                                            localIdStatData.survived
-                                                          }
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                          <span
-                                                            className={`font-medium ${
-                                                              localIdStatData.rate >=
-                                                              70
-                                                                ? "text-green-600"
-                                                                : localIdStatData.rate >=
-                                                                  40
-                                                                ? "text-yellow-600"
-                                                                : "text-red-600"
-                                                            }`}
-                                                          >
-                                                            {
-                                                              localIdStatData.rate
-                                                            }
-                                                            % Survival
-                                                          </span>
-                                                        </td>
-                                                      </>
-                                                    )}
-                                                </tr>
-                                              )}
+                                            <tr className="bg-blue-50 text-xs font-semibold">
+                                              <td
+                                                colSpan={2}
+                                                className="px-3 py-2 font-medium"
+                                              >
+                                                Grouping: {grouping}
+                                              </td>
+                                              <td
+                                                colSpan={1}
+                                                className="px-3 py-2"
+                                              >
+                                                {groupData.localIds.length}{" "}
+                                                Local ID
+                                                {groupData.localIds.length !== 1
+                                                  ? "s"
+                                                  : ""}
+                                              </td>
+                                              <td className="px-3 py-2">-</td>
+                                              <td className="px-3 py-2">
+                                                Total:{" "}
+                                                {groupData.genetics.reduce(
+                                                  (sum, g) => sum + g.colonies,
+                                                  0
+                                                )}
+                                              </td>
+                                              {props.showSurvivalData &&
+                                                event.monitoring
+                                                  ?.geneticSurvivalData && (
+                                                  <>
+                                                    <td className="px-3 py-2">
+                                                      Survived:{" "}
+                                                      {groupingStatData?.survived ||
+                                                        0}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                      <span
+                                                        className={`font-medium ${
+                                                          (groupingStatData?.rate ||
+                                                            0) >= 70
+                                                            ? "text-green-600"
+                                                            : (groupingStatData?.rate ||
+                                                                0) >= 40
+                                                            ? "text-yellow-600"
+                                                            : "text-red-600"
+                                                        }`}
+                                                      >
+                                                        {groupingStatData?.rate ||
+                                                          0}
+                                                        % Survival
+                                                      </span>
+                                                    </td>
+                                                  </>
+                                                )}
+                                            </tr>
 
-                                            {/* Individual tag rows */}
-                                            {genetics.map(
-                                              (
-                                                genetic: {
-                                                  genus: string;
-                                                  species: string;
-                                                  genotype: string;
-                                                  accessionNumber: string;
-                                                  colonies: number;
-                                                },
-                                                idx: number
-                                              ) => {
+                                            {groupData.genetics.map(
+                                              (genetic, idx) => {
                                                 const survivalData =
                                                   event.monitoring?.geneticSurvivalData?.find(
-                                                    (sd: {
-                                                      genotype: string;
-                                                      survived: number;
-                                                      initial: number;
-                                                      rate: number;
-                                                      level: string;
-                                                    }) =>
+                                                    (sd) =>
                                                       sd.genotype ===
-                                                      genetic.genotype
+                                                        genetic.uniqueGenotype ||
+                                                      sd.genotype ===
+                                                        genetic.genotype
                                                   );
 
                                                 return (
                                                   <tr
-                                                    key={`${genetic.genotype}-${idx}`}
+                                                    key={`${
+                                                      genetic.uniqueGenotype ||
+                                                      genetic.genotype
+                                                    }-${idx}`}
                                                     className="text-xs"
                                                   >
                                                     <td className="whitespace-nowrap px-3 py-2 font-medium">
@@ -527,7 +880,10 @@ export default function OutplantDetailedTable(props: {
                                                       {genetic.species}
                                                     </td>
                                                     <td className="whitespace-nowrap px-3 py-2 font-mono">
-                                                      {genetic.genotype}
+                                                      {genetic.genotype}{" "}
+                                                      <span className="text-gray-400">
+                                                        (ID: {genetic.localId})
+                                                      </span>
                                                     </td>
                                                     <td className="whitespace-nowrap px-3 py-2">
                                                       {genetic.accessionNumber !==
@@ -588,8 +944,333 @@ export default function OutplantDetailedTable(props: {
                                             )}
                                           </React.Fragment>
                                         );
-                                      }
-                                    );
+                                      });
+                                    } else if (viewMode === "localId") {
+                                      return Object.entries(
+                                        geneticsByLocalId
+                                      ).map(([localId, localIdData]) => {
+                                        const localIdStatData =
+                                          localIdStats[localId];
+
+                                        return (
+                                          <React.Fragment
+                                            key={`localid-${localId}`}
+                                          >
+                                            <tr className="bg-green-50 text-xs font-semibold">
+                                              <td
+                                                colSpan={2}
+                                                className="px-3 py-2 font-medium"
+                                              >
+                                                Local ID: {localId}
+                                              </td>
+                                              <td
+                                                colSpan={1}
+                                                className="px-3 py-2"
+                                              >
+                                                {localIdData.groupings.length}{" "}
+                                                Group
+                                                {localIdData.groupings
+                                                  .length !== 1
+                                                  ? "s"
+                                                  : ""}
+                                              </td>
+                                              <td className="px-3 py-2">
+                                                {localIdData.genetics[0]
+                                                  ?.accessionNumber !== "None"
+                                                  ? localIdData.genetics[0]
+                                                      ?.accessionNumber
+                                                  : "None"}
+                                              </td>
+                                              <td className="px-3 py-2">
+                                                Total:{" "}
+                                                {localIdData.genetics.reduce(
+                                                  (sum, g) => sum + g.colonies,
+                                                  0
+                                                )}
+                                              </td>
+                                              {props.showSurvivalData &&
+                                                event.monitoring
+                                                  ?.geneticSurvivalData && (
+                                                  <>
+                                                    <td className="px-3 py-2">
+                                                      Survived:{" "}
+                                                      {localIdStatData?.survived ||
+                                                        0}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                      <span
+                                                        className={`font-medium ${
+                                                          (localIdStatData?.rate ||
+                                                            0) >= 70
+                                                            ? "text-green-600"
+                                                            : (localIdStatData?.rate ||
+                                                                0) >= 40
+                                                            ? "text-yellow-600"
+                                                            : "text-red-600"
+                                                        }`}
+                                                      >
+                                                        {localIdStatData?.rate ||
+                                                          0}
+                                                        % Survival
+                                                      </span>
+                                                    </td>
+                                                  </>
+                                                )}
+                                            </tr>
+
+                                            {localIdData.genetics.map(
+                                              (genetic, idx) => {
+                                                const survivalData =
+                                                  event.monitoring?.geneticSurvivalData?.find(
+                                                    (sd) =>
+                                                      sd.genotype ===
+                                                        genetic.uniqueGenotype ||
+                                                      sd.genotype ===
+                                                        genetic.genotype
+                                                  );
+
+                                                return (
+                                                  <tr
+                                                    key={`${
+                                                      genetic.uniqueGenotype ||
+                                                      genetic.genotype
+                                                    }-${idx}`}
+                                                    className="text-xs"
+                                                  >
+                                                    <td className="whitespace-nowrap px-3 py-2 font-medium">
+                                                      {genetic.genus}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-2">
+                                                      {genetic.species}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-2 font-mono">
+                                                      {genetic.genotype}{" "}
+                                                      <span className="text-gray-400">
+                                                        (Group:{" "}
+                                                        {genetic.grouping})
+                                                      </span>
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-2">
+                                                      {genetic.accessionNumber !==
+                                                      "None" ? (
+                                                        <a
+                                                          href={`https://www.crfcoralregistry.com/#main/3/registry/edit?id=${genetic.accessionNumber}`}
+                                                          className="text-blue-500"
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                        >
+                                                          {
+                                                            genetic.accessionNumber
+                                                          }
+                                                        </a>
+                                                      ) : (
+                                                        genetic.accessionNumber
+                                                      )}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-2">
+                                                      {genetic.colonies}
+                                                    </td>
+                                                    {props.showSurvivalData &&
+                                                      event.monitoring
+                                                        ?.geneticSurvivalData && (
+                                                        <>
+                                                          <td className="whitespace-nowrap px-3 py-2">
+                                                            {survivalData
+                                                              ? survivalData.survived
+                                                              : "N/A"}
+                                                          </td>
+                                                          <td className="whitespace-nowrap px-3 py-2">
+                                                            {survivalData ? (
+                                                              <span
+                                                                className={`font-medium ${
+                                                                  survivalData.rate >=
+                                                                  70
+                                                                    ? "text-green-600"
+                                                                    : survivalData.rate >=
+                                                                      40
+                                                                    ? "text-yellow-600"
+                                                                    : "text-red-600"
+                                                                }`}
+                                                              >
+                                                                {
+                                                                  survivalData.rate
+                                                                }
+                                                                %
+                                                              </span>
+                                                            ) : (
+                                                              "N/A"
+                                                            )}
+                                                          </td>
+                                                        </>
+                                                      )}
+                                                  </tr>
+                                                );
+                                              }
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      });
+                                    } else {
+                                      return Object.entries(
+                                        geneticsBySpecies
+                                      ).map(([species, speciesData]) => {
+                                        const speciesStatData =
+                                          speciesStats[species];
+
+                                        return (
+                                          <React.Fragment
+                                            key={`species-${species}`}
+                                          >
+                                            <tr className="bg-purple-50 text-xs font-semibold">
+                                              <td
+                                                colSpan={2}
+                                                className="px-3 py-2 font-medium"
+                                              >
+                                                Species: {species}
+                                              </td>
+                                              <td
+                                                colSpan={1}
+                                                className="px-3 py-2"
+                                              >
+                                                {speciesData.localIds.length}{" "}
+                                                Local ID
+                                                {speciesData.localIds.length !==
+                                                1
+                                                  ? "s"
+                                                  : ""}
+                                              </td>
+                                              <td className="px-3 py-2">-</td>
+                                              <td className="px-3 py-2">
+                                                Total:{" "}
+                                                {speciesData.genetics.reduce(
+                                                  (sum, g) => sum + g.colonies,
+                                                  0
+                                                )}
+                                              </td>
+                                              {props.showSurvivalData &&
+                                                event.monitoring
+                                                  ?.geneticSurvivalData && (
+                                                  <>
+                                                    <td className="px-3 py-2">
+                                                      Survived:{" "}
+                                                      {speciesStatData?.survived ||
+                                                        0}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                      <span
+                                                        className={`font-medium ${
+                                                          (speciesStatData?.rate ||
+                                                            0) >= 70
+                                                            ? "text-green-600"
+                                                            : (speciesStatData?.rate ||
+                                                                0) >= 40
+                                                            ? "text-yellow-600"
+                                                            : "text-red-600"
+                                                        }`}
+                                                      >
+                                                        {speciesStatData?.rate ||
+                                                          0}
+                                                        % Survival
+                                                      </span>
+                                                    </td>
+                                                  </>
+                                                )}
+                                            </tr>
+
+                                            {speciesData.genetics.map(
+                                              (genetic, idx) => {
+                                                const survivalData =
+                                                  event.monitoring?.geneticSurvivalData?.find(
+                                                    (sd) =>
+                                                      sd.genotype ===
+                                                        genetic.uniqueGenotype ||
+                                                      sd.genotype ===
+                                                        genetic.genotype
+                                                  );
+
+                                                return (
+                                                  <tr
+                                                    key={`${
+                                                      genetic.uniqueGenotype ||
+                                                      genetic.genotype
+                                                    }-${idx}`}
+                                                    className="text-xs"
+                                                  >
+                                                    <td className="whitespace-nowrap px-3 py-2 font-medium">
+                                                      {genetic.genus}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-2">
+                                                      {genetic.species}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-2 font-mono">
+                                                      {genetic.genotype}{" "}
+                                                      <span className="text-gray-400">
+                                                        (ID: {genetic.localId},
+                                                        Group:{" "}
+                                                        {genetic.grouping})
+                                                      </span>
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-2">
+                                                      {genetic.accessionNumber !==
+                                                      "None" ? (
+                                                        <a
+                                                          href={`https://www.crfcoralregistry.com/#main/3/registry/edit?id=${genetic.accessionNumber}`}
+                                                          className="text-blue-500"
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                        >
+                                                          {
+                                                            genetic.accessionNumber
+                                                          }
+                                                        </a>
+                                                      ) : (
+                                                        genetic.accessionNumber
+                                                      )}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-2">
+                                                      {genetic.colonies}
+                                                    </td>
+                                                    {props.showSurvivalData &&
+                                                      event.monitoring
+                                                        ?.geneticSurvivalData && (
+                                                        <>
+                                                          <td className="whitespace-nowrap px-3 py-2">
+                                                            {survivalData
+                                                              ? survivalData.survived
+                                                              : "N/A"}
+                                                          </td>
+                                                          <td className="whitespace-nowrap px-3 py-2">
+                                                            {survivalData ? (
+                                                              <span
+                                                                className={`font-medium ${
+                                                                  survivalData.rate >=
+                                                                  70
+                                                                    ? "text-green-600"
+                                                                    : survivalData.rate >=
+                                                                      40
+                                                                    ? "text-yellow-600"
+                                                                    : "text-red-600"
+                                                                }`}
+                                                              >
+                                                                {
+                                                                  survivalData.rate
+                                                                }
+                                                                %
+                                                              </span>
+                                                            ) : (
+                                                              "N/A"
+                                                            )}
+                                                          </td>
+                                                        </>
+                                                      )}
+                                                  </tr>
+                                                );
+                                              }
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      });
+                                    }
                                   })()}
                                 </tbody>
                               </table>

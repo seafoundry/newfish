@@ -70,9 +70,12 @@ export interface OutplantResponse {
   eventName: string;
   genetics: {
     genotype: string;
+    uniqueGenotype: string;
     quantity: number;
     assessionId: string;
     grouping: string;
+    localId: string;
+    species: string;
     geneticDetails?: GeneticDetails;
   }[];
 }
@@ -84,6 +87,7 @@ export interface PopupInfoWithMultipleEvents extends OutplantResponse {
 
 export interface Genetic {
   genotype: string;
+  uniqueGenotype?: string;
   quantity: number;
   assessionId: string;
 }

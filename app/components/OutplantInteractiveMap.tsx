@@ -3,6 +3,8 @@
 import "mapbox-gl/dist/mapbox-gl.css"; // this took me a while to figure out!
 import { useEffect, useState } from "react";
 import { Map, Marker, NavigationControl, Popup } from "react-map-gl";
+import { getUniqueSpecies } from "../actions/getGeneticMappings";
+import { getMonitoring, MonitoringResponse } from "../actions/getMonitoring";
 import { parseCoralId } from "../lib/coral";
 import {
   Genetic,
@@ -11,26 +13,28 @@ import {
 } from "../types/files";
 import OutplantDetailedTable from "./OutplantDetailedTable";
 import { generateCSV } from "./ReportGenerator";
-import { getUniqueSpecies } from "../actions/getGeneticMappings";
-import { getMonitoring, MonitoringResponse } from "../actions/getMonitoring";
 
 const mergeGenetics = (genetics: Genetic[]): Genetic[] => {
   return Object.values(
-    genetics.reduce<Record<string, Genetic>>(
-      (acc, { genotype, quantity, assessionId }) => {
-        if (!acc[genotype]) {
-          acc[genotype] = { genotype, quantity: 0, assessionId };
-        }
-        acc[genotype].quantity += quantity;
-        return acc;
-      },
-      {}
-    )
+    genetics.reduce<Record<string, Genetic>>((acc, genetic) => {
+      const key = genetic.uniqueGenotype || genetic.genotype;
+      if (!acc[key]) {
+        acc[key] = {
+          genotype: genetic.genotype,
+          uniqueGenotype: genetic.uniqueGenotype,
+          quantity: 0,
+          assessionId: genetic.assessionId,
+        };
+      }
+      acc[key].quantity += genetic.quantity;
+      return acc;
+    }, {})
   );
 };
 
 export default function OutplantInteractiveMap(props: {
   outplants: OutplantResponse[];
+  initialMonitoringData?: MonitoringResponse[];
 }) {
   const [popupInfo, setPopupInfo] = useState<
     OutplantResponse | PopupInfoWithMultipleEvents | null
@@ -42,16 +46,21 @@ export default function OutplantInteractiveMap(props: {
   const [speciesList, setSpeciesList] = useState<string[]>([]);
   const [isLoadingSpecies, setIsLoadingSpecies] = useState<boolean>(true);
   const [monitoringData, setMonitoringData] = useState<MonitoringResponse[]>(
-    []
+    props.initialMonitoringData || []
   );
-  const [, setIsLoadingMonitoring] = useState<boolean>(true);
+  const [, setIsLoadingMonitoring] = useState<boolean>(
+    props.initialMonitoringData ? false : true
+  );
   const [showSurvivalData, setShowSurvivalData] = useState<boolean>(true);
 
   useEffect(() => {
     async function loadData() {
       try {
         setIsLoadingSpecies(true);
-        setIsLoadingMonitoring(true);
+        const shouldLoadMonitoring = !props.initialMonitoringData;
+        if (shouldLoadMonitoring) {
+          setIsLoadingMonitoring(true);
+        }
 
         const uploadedSpecies = await getUniqueSpecies();
 
@@ -59,7 +68,7 @@ export default function OutplantInteractiveMap(props: {
         props.outplants.forEach((outplant) => {
           outplant.genetics.forEach((genetic) => {
             try {
-              const species = parseCoralId(genetic.genotype);
+              const species = genetic.species || parseCoralId(genetic.genotype);
               if (species && species !== genetic.genotype) {
                 outplantSpecies.add(species);
               }
@@ -72,23 +81,28 @@ export default function OutplantInteractiveMap(props: {
         ].sort();
         setSpeciesList(["All Species", ...combinedSpecies]);
 
-        try {
-          const monitoringResults = await getMonitoring();
-          console.log(`Loaded ${monitoringResults.length} monitoring records`);
-          setMonitoringData(monitoringResults);
-        } catch (err) {
-          console.error("Failed to load monitoring data:", err);
+        if (shouldLoadMonitoring) {
+          try {
+            const monitoringResults = await getMonitoring();
+            console.log(
+              `Loaded ${monitoringResults.length} monitoring records`
+            );
+            setMonitoringData(monitoringResults);
+          } catch (err) {
+            console.error("Failed to load monitoring data:", err);
+          } finally {
+            setIsLoadingMonitoring(false);
+          }
         }
       } catch (error) {
         console.error("Failed to load data:", error);
       } finally {
         setIsLoadingSpecies(false);
-        setIsLoadingMonitoring(false);
       }
     }
 
     loadData();
-  }, [props.outplants]);
+  }, [props.outplants, props.initialMonitoringData]);
 
   const organizations = [
     "All Organizations",
