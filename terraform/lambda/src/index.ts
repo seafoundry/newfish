@@ -156,13 +156,13 @@ export async function handler(event: S3Event) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
               const localIdGenetProp = record["Local ID/Genet Propagation"];
-              const accessionNumber = record["AccessionNumber"] || "None"; // this might not be included
+              const accessionNumber = record["Accession Number"] || "None"; // this might not be included
               const species = record["Species"];
 
               const additionalData = { ...record };
               delete additionalData["Local ID/Genet Propagation"];
               delete additionalData["Species"];
-              delete additionalData["AccessionNumber"];
+              delete additionalData["Accession Number"];
 
               return {
                 id: randomUUID(),
