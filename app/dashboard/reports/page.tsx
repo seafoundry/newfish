@@ -103,9 +103,12 @@ export default function ReportsPage() {
         outplants.forEach((outplant) => {
           outplant.genetics.forEach((genetic) => {
             try {
-              const species = parseCoralId(genetic.genotype);
-              if (species && species !== genetic.genotype) {
-                outplantSpecies.add(species);
+              const parsedId = parseCoralId(genetic.genotype);
+              if (
+                parsedId.speciesName &&
+                parsedId.speciesName !== genetic.genotype
+              ) {
+                outplantSpecies.add(parsedId.speciesName);
               }
             } catch {}
           });
@@ -152,10 +155,11 @@ export default function ReportsPage() {
         if (!g.genotype) return false;
 
         try {
-          const species = parseCoralId(g.genotype);
+          const parsedId = parseCoralId(g.genotype);
           return filters.species.some(
             (s) =>
-              s === "All Species" || species?.toLowerCase() === s.toLowerCase()
+              s === "All Species" ||
+              parsedId.speciesName.toLowerCase() === s.toLowerCase()
           );
         } catch (error) {
           console.error("Error parsing coral ID:", error, g.genotype);
@@ -201,7 +205,7 @@ export default function ReportsPage() {
     return filteredOutplants.filter((outplant) => {
       const outplantDate = new Date(outplant.date);
       const hasSpecies = outplant.genetics.some(
-        (g) => parseCoralId(g.genotype) === species
+        (g) => parseCoralId(g.genotype).speciesName === species
       );
       return outplantDate >= cutoffDate && hasSpecies;
     });
@@ -210,7 +214,7 @@ export default function ReportsPage() {
   const getSpeciesInRegion = (species: string, boundingBox: BoundingBox) => {
     return filteredOutplants.filter((outplant) => {
       const hasSpecies = outplant.genetics.some(
-        (g) => parseCoralId(g.genotype) === species
+        (g) => parseCoralId(g.genotype).speciesName === species
       );
       return hasSpecies && isInBoundingBox(outplant.coordinates, boundingBox);
     });
@@ -542,7 +546,8 @@ export default function ReportsPage() {
                   </summary>
                   <div className="px-4 py-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {nurseryGroup.nurseryRows.map((row, i) => {
-                      const species = parseCoralId(row.genetId);
+                      const parsedId = parseCoralId(row.genetId);
+                      const species = parsedId.speciesName;
                       const mapping = nurseryGroup.geneticMappings.find(
                         (m) => m.localGenetId === row.genetId
                       );
@@ -589,7 +594,7 @@ export default function ReportsPage() {
                     sum +
                     o.genetics.reduce(
                       (s, g) =>
-                        parseCoralId(g.genotype) === species
+                        parseCoralId(g.genotype).speciesName === species
                           ? s + g.quantity
                           : s,
                       0
@@ -625,7 +630,7 @@ export default function ReportsPage() {
                         sum +
                         o.genetics.reduce(
                           (s, g) =>
-                            parseCoralId(g.genotype) === species
+                            parseCoralId(g.genotype).speciesName === species
                               ? s + g.quantity
                               : s,
                           0
