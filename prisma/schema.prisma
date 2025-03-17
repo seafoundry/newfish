@@ -8,13 +8,16 @@ datasource db {
 }
 
 model User {
-  id             String           @id @default(cuid())
-  clerkUserId    String           @unique
-  email          String           @unique
-  fileUploads    FileUpload[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  godMode        Boolean          @default(false)
+  id          String       @id @default(cuid())
+  clerkUserId String       @unique
+  email       String       @unique
+  fileUploads FileUpload[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  godMode     Boolean      @default(false)
+
+  sharingWith String[]
+
   GeneticMapping GeneticMapping[]
 }
 

@@ -13,15 +13,35 @@ export async function getNurseries() {
 
     const user = await prisma.user.findFirst({
       where: { clerkUserId: clerkUser.id },
+      select: {
+        id: true,
+        email: true,
+        godMode: true,
+      },
     });
 
     if (!user) throw new Error("User not found");
+
+    const sharingUsers = user.godMode
+      ? []
+      : await prisma.user.findMany({
+          where: {
+            sharingWith: {
+              has: user.email,
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+    const sharedUserIds = sharingUsers.map((u) => u.id);
 
     const nurseryRows = await prisma.nurseryRow.findMany({
       where: {
         nurseryFile: {
           fileUpload: {
-            userId: user.id,
+            OR: [{ userId: user.id }, { userId: { in: sharedUserIds } }],
           },
         },
       },

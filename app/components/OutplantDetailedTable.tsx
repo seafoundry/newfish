@@ -30,21 +30,130 @@ export default function OutplantDetailedTable(props: {
     const genetics: GeneticWithDetails[] = outplant.genetics.map((genetic) => {
       let speciesInfo = { genus: "N/A", species: "N/A" };
       try {
-        const fullSpeciesName =
-          genetic.species || parseCoralId(genetic.genotype);
-        speciesInfo = splitSpeciesName(fullSpeciesName);
-      } catch {
-        console.warn(`Could not parse genotype: ${genetic.genotype}`);
+        const parsedId = parseCoralId(genetic.genotype);
+
+        if (genetic.species && genetic.species !== "Unknown species") {
+          if (genetic.species.includes(" ")) {
+            speciesInfo = splitSpeciesName(genetic.species);
+          } else {
+            if (
+              genetic.species.charAt(0).toLowerCase() ===
+              genetic.species.charAt(0)
+            ) {
+              const knownSpecies = [
+                "asteroides",
+                "faveolata",
+                "annularis",
+                "franksi",
+                "cavernosa",
+                "intersepta",
+                "strigosa",
+                "clivosa",
+                "stokesii",
+                "natans",
+                "cylindrus",
+              ];
+
+              if (knownSpecies.includes(genetic.species.toLowerCase())) {
+                const genusMap: Record<string, string> = {
+                  asteroides: "Porites",
+                  faveolata: "Orbicella",
+                  annularis: "Orbicella",
+                  franksi: "Orbicella",
+                  cavernosa: "Montastraea",
+                  intersepta: "Stephanocoenia",
+                  strigosa: "Pseudodiploria",
+                  clivosa: "Pseudodiploria",
+                  stokesii: "Dichocoenia",
+                  natans: "Colpophyllia",
+                  cylindrus: "Dendrogyra",
+                };
+
+                speciesInfo = {
+                  genus: genusMap[genetic.species.toLowerCase()] || "Unknown",
+                  species: genetic.species,
+                };
+              } else {
+                speciesInfo = {
+                  genus: "Unknown",
+                  species: genetic.species,
+                };
+              }
+            } else {
+              speciesInfo = {
+                genus: genetic.species,
+                species: "",
+              };
+            }
+          }
+        } else if (
+          parsedId.speciesName &&
+          parsedId.speciesName !== "Unknown species"
+        ) {
+          speciesInfo = splitSpeciesName(parsedId.speciesName);
+        }
+      } catch (err) {
+        console.warn(`Could not parse genotype: ${genetic.genotype}`, err);
       }
 
       const accessionNumber =
         genetic.assessionId && genetic.assessionId !== "None"
-          ? genetic.assessionId
+          ? genetic.assessionId || genetic.assessionId
           : "None";
 
+      let fixedGenus = speciesInfo.genus === "N/A" ? "" : speciesInfo.genus;
+      let fixedSpecies =
+        speciesInfo.species === "N/A" ? "" : speciesInfo.species;
+
+      if (fixedGenus === "Straigosa" || fixedGenus === "straigosa") {
+        fixedGenus = "Pseudodiploria";
+        fixedSpecies = "strigosa";
+      }
+
+      if (genetic.genotype.startsWith("PS") && !fixedGenus) {
+        fixedGenus = "Pseudodiploria";
+
+        if (!fixedSpecies) {
+          fixedSpecies = "strigosa";
+        }
+      }
+
+      const knownSpecies = [
+        "faveolata",
+        "annularis",
+        "franksi",
+        "cavernosa",
+        "intersepta",
+        "strigosa",
+        "clivosa",
+        "stokesii",
+        "natans",
+        "cylindrus",
+        "asteroides",
+      ];
+
+      if (knownSpecies.includes(fixedGenus.toLowerCase())) {
+        const genusMap: Record<string, string> = {
+          faveolata: "Orbicella",
+          annularis: "Orbicella",
+          franksi: "Orbicella",
+          cavernosa: "Montastraea",
+          intersepta: "Stephanocoenia",
+          strigosa: "Pseudodiploria",
+          clivosa: "Pseudodiploria",
+          stokesii: "Dichocoenia",
+          natans: "Colpophyllia",
+          cylindrus: "Dendrogyra",
+          asteroides: "Porites",
+        };
+
+        fixedSpecies = fixedGenus;
+        fixedGenus = genusMap[fixedGenus.toLowerCase()] || "Unknown";
+      }
+
       return {
-        genus: speciesInfo.genus,
-        species: speciesInfo.species,
+        genus: fixedGenus,
+        species: fixedSpecies,
         genotype: genetic.genotype,
         uniqueGenotype:
           genetic.uniqueGenotype ||
@@ -276,7 +385,11 @@ export default function OutplantDetailedTable(props: {
       organization: outplant.contact,
       totalColonies: outplant.genetics.reduce((sum, g) => sum + g.quantity, 0),
       species: [
-        ...new Set(outplant.genetics.map((g) => parseCoralId(g.genotype))),
+        ...new Set(
+          outplant.genetics.map(
+            (g) => g.species || parseCoralId(g.genotype).speciesName
+          )
+        ),
       ],
       genetics,
       monitoring: monitoring
@@ -288,6 +401,7 @@ export default function OutplantDetailedTable(props: {
             survivalDetails: monitoring.outplantingEvent?.survivalDetails,
             geneticSurvivalData:
               geneticSurvivalData.length > 0 ? geneticSurvivalData : null,
+            allMonitoringEvents: monitoring.allMonitoringEvents || [],
           }
         : null,
     };
@@ -1277,50 +1391,118 @@ export default function OutplantDetailedTable(props: {
                             </div>
 
                             {props.showSurvivalData && event.monitoring && (
-                              <div className="mt-4 p-3 border rounded bg-white">
+                              <div className="mt-4 space-y-3">
                                 <h4 className="text-sm font-medium mb-2">
-                                  Most Recent Monitoring Data (
-                                  {new Date(
-                                    event.monitoring.date
-                                  ).toLocaleDateString()}
-                                  )
+                                  Monitoring Data
                                 </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 text-xs gap-3">
-                                  <div>
-                                    <div className="text-gray-500">
-                                      Initial Quantity at Outplanting
-                                    </div>
-                                    <div className="font-medium">
-                                      {event.monitoring.initialQuantity}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="text-gray-500">
-                                      Current Surviving Quantity
-                                    </div>
-                                    <div className="font-medium">
-                                      {event.monitoring.qtySurvived}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="text-gray-500">
-                                      Overall Survival Rate
+
+                                {/* Most recent monitoring data card */}
+                                <div className="p-3 border rounded bg-white">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <div className="font-medium text-sm">
+                                      Most Recent (
+                                      {new Date(
+                                        event.monitoring.date
+                                      ).toLocaleDateString()}
+                                      )
                                     </div>
                                     <div
-                                      className={`font-medium ${
+                                      className={`text-xs font-bold px-2 py-1 rounded-full ${
                                         event.monitoring.survivalRate &&
                                         event.monitoring.survivalRate >= 70
-                                          ? "text-green-600"
+                                          ? "bg-green-100 text-green-800"
                                           : event.monitoring.survivalRate &&
                                             event.monitoring.survivalRate >= 40
-                                          ? "text-yellow-600"
-                                          : "text-red-600"
+                                          ? "bg-yellow-100 text-yellow-800"
+                                          : "bg-red-100 text-red-800"
                                       }`}
                                     >
-                                      {event.monitoring.survivalRate}%
+                                      {event.monitoring.survivalRate}% Survival
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 text-xs gap-3">
+                                    <div>
+                                      <div className="text-gray-500">
+                                        Initial Quantity at Outplanting
+                                      </div>
+                                      <div className="font-medium">
+                                        {event.monitoring.initialQuantity}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-500">
+                                        Current Surviving Quantity
+                                      </div>
+                                      <div className="font-medium">
+                                        {event.monitoring.qtySurvived}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-500">
+                                        Time Since Outplanting
+                                      </div>
+                                      <div className="font-medium">
+                                        {Math.round(
+                                          (new Date(
+                                            event.monitoring.date
+                                          ).getTime() -
+                                            new Date(event.date).getTime()) /
+                                            (1000 * 60 * 60 * 24)
+                                        )}{" "}
+                                        days
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
+
+                                {/* Add a dropdown or accordion to view historical monitoring data */}
+                                {event.monitoring.allMonitoringEvents &&
+                                  event.monitoring.allMonitoringEvents.length >
+                                    1 && (
+                                    <div className="border rounded bg-gray-50 p-3">
+                                      <div className="text-sm font-medium mb-2">
+                                        Historical Monitoring Data
+                                      </div>
+                                      <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                        {event.monitoring.allMonitoringEvents
+                                          .slice(1)
+                                          .map((monEvent, idx) => (
+                                            <div
+                                              key={`monitoring-history-${idx}`}
+                                              className="bg-white p-2 rounded border text-xs"
+                                            >
+                                              <div className="flex justify-between items-center mb-1">
+                                                <div className="font-medium">
+                                                  {new Date(
+                                                    monEvent.date
+                                                  ).toLocaleDateString()}
+                                                </div>
+                                                <div
+                                                  className={`font-bold ${
+                                                    monEvent.survivalRate >= 70
+                                                      ? "text-green-600"
+                                                      : monEvent.survivalRate >=
+                                                        40
+                                                      ? "text-yellow-600"
+                                                      : "text-red-600"
+                                                  }`}
+                                                >
+                                                  {monEvent.survivalRate}%
+                                                  Survival
+                                                </div>
+                                              </div>
+                                              <div className="grid grid-cols-2 gap-1">
+                                                <div>Surviving:</div>
+                                                <div>
+                                                  {monEvent.qtySurvived} of{" "}
+                                                  {monEvent.initialQuantity}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  )}
                               </div>
                             )}
                           </td>

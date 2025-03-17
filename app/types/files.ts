@@ -89,5 +89,9 @@ export interface Genetic {
   genotype: string;
   uniqueGenotype?: string;
   quantity: number;
-  assessionId: string;
+  accessionNumber?: string;
+  assessionId?: string;
+  localId?: string;
+  grouping?: string;
+  species?: string;
 }

@@ -29,8 +29,27 @@ export default async function getOutplants() {
 
     if (!user) throw new Error("User not found");
 
+    const sharingUsers = user.godMode
+      ? []
+      : await prisma.user.findMany({
+          where: {
+            sharingWith: {
+              has: user.email,
+            },
+          },
+          select: {
+            email: true,
+          },
+        });
+
+    const sharedEmails = sharingUsers.map((u) => u.email);
+
     const outplantFiles = await prisma.outplantingFile.findMany({
-      where: user.godMode ? {} : { email: user.email },
+      where: user.godMode
+        ? {}
+        : {
+            OR: [{ email: user.email }, { email: { in: sharedEmails } }],
+          },
       include: {
         rows: true,
       },
@@ -41,7 +60,7 @@ export default async function getOutplants() {
         ? {}
         : {
             geneticsFile: {
-              email: user.email,
+              OR: [{ email: user.email }, { email: { in: sharedEmails } }],
             },
           },
       select: {
@@ -68,15 +87,8 @@ export default async function getOutplants() {
           (genet) => genet.localIdGenetProp === row.genetId
         );
 
-        const localId = row.genetId.split("-")[0];
-        let species = "";
-
-        try {
-          species = parseCoralId(row.genetId);
-        } catch {
-          console.warn(`Could not parse species from genotype: ${row.genetId}`);
-        }
-
+        const parsedId = parseCoralId(row.genetId);
+        const localId = parsedId.localId || row.genetId.split("-")[0];
         const uniqueGenotype = makeUniqueGenotype(row.genetId, row.grouping);
 
         if (exactGeneticData) {
@@ -86,8 +98,9 @@ export default async function getOutplants() {
             quantity: row.quantity,
             grouping: row.grouping,
             localId: localId,
-            species: exactGeneticData.species || species,
+            species: exactGeneticData.species || parsedId.speciesName,
             assessionId: exactGeneticData.accessionNumber || "None",
+            accessionNumber: exactGeneticData.accessionNumber || "None",
             geneticDetails: exactGeneticData.additionalData as
               | GeneticDetails
               | undefined,
@@ -111,8 +124,9 @@ export default async function getOutplants() {
           quantity: row.quantity,
           grouping: row.grouping,
           localId: localId,
-          species: geneticData?.species || species,
+          species: geneticData?.species || parsedId.speciesName,
           assessionId: geneticData?.accessionNumber || "None",
+          accessionNumber: geneticData?.accessionNumber || "None",
           geneticDetails: geneticData?.additionalData as
             | GeneticDetails
             | undefined,

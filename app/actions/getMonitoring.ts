@@ -22,6 +22,14 @@ export interface SurvivalDetails {
   overall: SurvivalDetail;
 }
 
+export interface MonitoringEvent {
+  id: string;
+  date: string;
+  qtySurvived: number;
+  initialQuantity: number;
+  survivalRate: number;
+}
+
 export interface MonitoringResponse {
   id: string;
   fileUploadId: string;
@@ -39,6 +47,7 @@ export interface MonitoringResponse {
     geneticIds?: string[];
     survivalDetails?: SurvivalDetails;
   };
+  allMonitoringEvents?: MonitoringEvent[];
 }
 
 export async function getMonitoring(): Promise<MonitoringResponse[]> {
@@ -57,13 +66,26 @@ export async function getMonitoring(): Promise<MonitoringResponse[]> {
 
     if (!user) throw new Error("User not found");
 
+    const sharingUsers = user.godMode
+      ? []
+      : await prisma.user.findMany({
+          where: {
+            sharingWith: {
+              has: user.email,
+            },
+          },
+          select: {
+            email: true,
+          },
+        });
+
+    const sharedEmails = sharingUsers.map((u) => u.email);
+
     const monitoringFiles = await prisma.monitoringFile.findMany({
       where: user.godMode
         ? {}
         : {
-            fileUpload: {
-              userId: user.id,
-            },
+            OR: [{ email: user.email }, { email: { in: sharedEmails } }],
           },
       include: {
         rows: true,
@@ -295,22 +317,42 @@ export async function getMonitoring(): Promise<MonitoringResponse[]> {
       const outplantingEvent = outplantingEventsMap.get(eventId);
 
       if (outplantingEvent) {
-        let bestFile = group.files[0];
-        let highestQty = 0;
+        const sortedFiles = [...group.files].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
 
-        for (const file of group.files) {
-          const totalQty = file.rows.reduce(
-            (sum, row) => sum + Number(row.QtySurvived || 0),
-            0
-          );
-          if (totalQty > highestQty) {
-            highestQty = totalQty;
-            bestFile = file;
-          }
-        }
+        const bestFile = sortedFiles[0];
+        const highestQty = sortedFiles[0].rows.reduce(
+          (sum, row) => sum + Number(row.QtySurvived || 0),
+          0
+        );
 
         console.log(
-          `Using best file ${bestFile.id} with ${highestQty} for event ${eventId}`
+          `Using best file ${bestFile.id} with ${highestQty} for event ${eventId} (most recent)`
+        );
+
+        const allMonitoringEvents: MonitoringEvent[] = sortedFiles.map(
+          (file) => {
+            const totalQty = file.rows.reduce(
+              (sum, row) => sum + Number(row.QtySurvived || 0),
+              0
+            );
+
+            const survivalRate =
+              outplantingEvent.initialQuantity > 0
+                ? Math.round(
+                    (totalQty / outplantingEvent.initialQuantity) * 100
+                  )
+                : 0;
+
+            return {
+              id: file.id,
+              date: file.date,
+              qtySurvived: totalQty,
+              initialQuantity: outplantingEvent.initialQuantity,
+              survivalRate: survivalRate,
+            };
+          }
         );
 
         const survivalDetails: SurvivalDetails = {
@@ -457,6 +499,7 @@ export async function getMonitoring(): Promise<MonitoringResponse[]> {
             geneticIds: outplantingEvent.geneticIds,
             survivalDetails,
           },
+          allMonitoringEvents: allMonitoringEvents,
         };
 
         console.log(

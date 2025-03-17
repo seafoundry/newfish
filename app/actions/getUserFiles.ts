@@ -17,7 +17,10 @@ export async function getUserFiles(): Promise<FileData[]> {
     where: {
       clerkUserId: clerkUser.id,
     },
-    include: {
+    select: {
+      id: true,
+      email: true,
+      godMode: true,
       fileUploads: {
         orderBy: {
           createdAt: "desc",
@@ -30,7 +33,39 @@ export async function getUserFiles(): Promise<FileData[]> {
     throw new Error("User not found");
   }
 
-  return user.fileUploads.map((file) => ({
+  const sharingUsers = user.godMode
+    ? []
+    : await prisma.user.findMany({
+        where: {
+          sharingWith: {
+            has: user.email,
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          fileUploads: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+        },
+      });
+
+  const allFiles = [...user.fileUploads];
+
+  sharingUsers.forEach((sharingUser) => {
+    sharingUser.fileUploads.forEach((file) => {
+      allFiles.push({
+        ...file,
+        fileName: `${file.fileName} (shared by ${sharingUser.email})`,
+      });
+    });
+  });
+
+  allFiles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  return allFiles.map((file) => ({
     id: file.id,
     fileName: file.fileName,
     category: file.category as FileCategory,

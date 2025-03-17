@@ -11,14 +11,36 @@ export async function getGeneticMappings() {
 
   const user = await prisma.user.findFirst({
     where: { clerkUserId: clerkUser.id },
+    select: {
+      id: true,
+      email: true,
+      godMode: true,
+    },
   });
 
   if (!user) throw new Error("User not found");
 
+  const sharingUsers = user.godMode
+    ? []
+    : await prisma.user.findMany({
+        where: {
+          sharingWith: {
+            has: user.email,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+  const sharedUserIds = sharingUsers.map((u) => u.id);
+
   const geneticMappings = await prisma.geneticMapping.findMany({
-    where: {
-      userId: user.id,
-    },
+    where: user.godMode
+      ? {}
+      : {
+          OR: [{ userId: user.id }, { userId: { in: sharedUserIds } }],
+        },
   });
 
   return geneticMappings;
@@ -30,15 +52,35 @@ export async function getUniqueSpecies() {
 
   const user = await prisma.user.findFirst({
     where: { clerkUserId: clerkUser.id },
+    select: {
+      id: true,
+      email: true,
+      godMode: true,
+    },
   });
 
   if (!user) throw new Error("User not found");
+
+  const sharingUsers = user.godMode
+    ? []
+    : await prisma.user.findMany({
+        where: {
+          sharingWith: {
+            has: user.email,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+  const sharedUserIds = sharingUsers.map((u) => u.id);
 
   const geneticsRows = await prisma.geneticsRow.findMany({
     where: {
       geneticsFile: {
         fileUpload: {
-          userId: user.id,
+          OR: [{ userId: user.id }, { userId: { in: sharedUserIds } }],
         },
       },
       species: {

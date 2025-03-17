@@ -48,14 +48,108 @@ export const speciesMap: SpeciesMapping = {
   UN: "unknown unknown",
 };
 
-export function parseCoralId(id: string): string {
+export const fullSpeciesMap: Record<
+  string,
+  { genus: string; species: string }
+> = {
+  MCAV: { genus: "Montastraea", species: "cavernosa" },
+  OFAV: { genus: "Orbicella", species: "faveolata" },
+  OANN: { genus: "Orbicella", species: "annularis" },
+  OFRA: { genus: "Orbicella", species: "franksi" },
+  PAST: { genus: "Porites", species: "asteroides" },
+  PPOR: { genus: "Porites", species: "porites" },
+  APAL: { genus: "Acropora", species: "palmata" },
+  ACER: { genus: "Acropora", species: "cervicornis" },
+  SINT: { genus: "Stephanocoenia", species: "intersepta" },
+  DSTO: { genus: "Dichocoenia", species: "stokesii" },
+  PSTR: { genus: "Pseudodiploria", species: "strigosa" },
+  PCLI: { genus: "Pseudodiploria", species: "clivosa" },
+  CNAT: { genus: "Colpophyllia", species: "natans" },
+  DCYL: { genus: "Dendrogyra", species: "cylindrus" },
+
+  MC: { genus: "Montastraea", species: "cavernosa" },
+  OF: { genus: "Orbicella", species: "faveolata" },
+  OA: { genus: "Orbicella", species: "annularis" },
+  OK: { genus: "Orbicella", species: "franksi" },
+  PA: { genus: "Porites", species: "asteroides" },
+  PP: { genus: "Porites", species: "porites" },
+  AP: { genus: "Acropora", species: "palmata" },
+  AC: { genus: "Acropora", species: "cervicornis" },
+  SI: { genus: "Stephanocoenia", species: "intersepta" },
+  DS: { genus: "Dichocoenia", species: "stokesii" },
+  PD: { genus: "Pseudodiploria", species: "strigosa" },
+  PC: { genus: "Pseudodiploria", species: "clivosa" },
+  CN: { genus: "Colpophyllia", species: "natans" },
+  DC: { genus: "Dendrogyra", species: "cylindrus" },
+
+  PS: { genus: "Pseudodiploria", species: "strigosa" },
+  "PS-": { genus: "Pseudodiploria", species: "strigosa" },
+  PS14: { genus: "Pseudodiploria", species: "strigosa" },
+  PS2: { genus: "Pseudodiploria", species: "strigosa" },
+  PS3: { genus: "Pseudodiploria", species: "strigosa" },
+};
+
+export interface ParsedCoralId {
+  speciesName: string;
+  localId: string;
+  originalId: string;
+  format: "standard" | "old" | "mote" | "unknown";
+}
+
+/**
+ * Parse a coral ID to extract species information and local ID
+ *
+ * Handles multiple formats:
+ * - Standard format: XXXX-000 (e.g., OFAV-047, PAST-041)
+ * - Old format: XX000 (e.g., AP123, MC456)
+ * - Mote format: XX000 (e.g., AP275) - handled via genetics_mapping.csv
+ *
+ * @param id The coral ID to parse
+ * @returns Parsed coral ID with species name, local ID, and format information
+ */
+export function parseCoralId(id: string): ParsedCoralId {
+  if (!id) {
+    return {
+      speciesName: "Unknown species",
+      localId: id || "",
+      originalId: id || "",
+      format: "unknown",
+    };
+  }
+
   id = id.trim().toUpperCase();
+  const originalId = id;
 
-  const newFormat = /^([A-Z]+)-?(\d+)$/;
-  const newMatch = id.match(newFormat);
+  if (id.startsWith("PS")) {
+    return {
+      speciesName: "Pseudodiploria strigosa",
+      localId: id,
+      originalId,
+      format: "standard",
+    };
+  }
 
-  if (newMatch) {
-    const prefix = newMatch[1];
+  const standardFormat = /^([A-Z]+)-?(\d+)$/;
+  const standardMatch = id.match(standardFormat);
+
+  if (standardMatch) {
+    const prefix = standardMatch[1];
+    const number = standardMatch[2];
+    const localId = `${prefix}-${number}`;
+
+    const speciesDetails = fullSpeciesMap[prefix];
+
+    if (speciesDetails) {
+      const speciesName = `${speciesDetails.genus} ${speciesDetails.species}`;
+
+      return {
+        speciesName,
+        localId,
+        originalId,
+        format: "standard",
+      };
+    }
+
     const prefixMap: { [key: string]: string } = {
       OFAV: "OF",
       OANN: "OA",
@@ -68,16 +162,15 @@ export function parseCoralId(id: string): string {
       AP: "AP",
     };
 
-    const speciesCode = prefixMap[prefix];
-    if (speciesCode && speciesMap[speciesCode]) {
-      return speciesMap[speciesCode];
-    }
+    const speciesCode = prefixMap[prefix] || prefix;
+    const speciesName = speciesMap[speciesCode] || "Unknown species";
 
-    if (speciesMap[prefix]) {
-      return speciesMap[prefix];
-    }
-
-    return id;
+    return {
+      speciesName,
+      localId,
+      originalId,
+      format: "standard",
+    };
   }
 
   const oldFormat = /^([A-Z]{2})(\d+)$/;
@@ -85,20 +178,88 @@ export function parseCoralId(id: string): string {
 
   if (oldMatch) {
     const prefix = oldMatch[1];
-    const speciesName = speciesMap[prefix];
+    const number = oldMatch[2];
+    const localId = `${prefix}${number}`;
 
-    if (speciesName) {
-      return speciesName;
+    const speciesDetails = fullSpeciesMap[prefix];
+
+    if (speciesDetails) {
+      const speciesName = `${speciesDetails.genus} ${speciesDetails.species}`;
+
+      return {
+        speciesName,
+        localId,
+        originalId,
+        format: "old",
+      };
     }
+
+    const speciesName = speciesMap[prefix] || "Unknown species";
+
+    return {
+      speciesName,
+      localId,
+      originalId,
+      format: "old",
+    };
   }
 
-  return id;
+  return {
+    speciesName: "Unknown species",
+    localId: id,
+    originalId,
+    format: "unknown",
+  };
 }
 
 export function splitSpeciesName(fullName: string): {
   genus: string;
   species: string;
 } {
+  if (!fullName.includes(" ")) {
+    const lowerCaseName = fullName.toLowerCase();
+
+    const knownSpecies = [
+      "asteroides",
+      "faveolata",
+      "annularis",
+      "franksi",
+      "cavernosa",
+      "intersepta",
+      "strigosa",
+      "clivosa",
+      "stokesii",
+      "natans",
+      "cylindrus",
+    ];
+
+    if (knownSpecies.includes(lowerCaseName)) {
+      const genusMap: Record<string, string> = {
+        asteroides: "Porites",
+        faveolata: "Orbicella",
+        annularis: "Orbicella",
+        franksi: "Orbicella",
+        cavernosa: "Montastraea",
+        intersepta: "Stephanocoenia",
+        strigosa: "Pseudodiploria",
+        clivosa: "Pseudodiploria",
+        stokesii: "Dichocoenia",
+        natans: "Colpophyllia",
+        cylindrus: "Dendrogyra",
+      };
+
+      return {
+        genus: genusMap[lowerCaseName] || "Unknown",
+        species: fullName,
+      };
+    }
+
+    return {
+      genus: fullName,
+      species: "",
+    };
+  }
+
   const [genus, ...speciesParts] = fullName.split(" ");
   return {
     genus,

@@ -68,11 +68,21 @@ export default function OutplantInteractiveMap(props: {
         props.outplants.forEach((outplant) => {
           outplant.genetics.forEach((genetic) => {
             try {
-              const species = genetic.species || parseCoralId(genetic.genotype);
-              if (species && species !== genetic.genotype) {
+              const parsedId = parseCoralId(genetic.genotype);
+              const species = genetic.species || parsedId.speciesName;
+              if (
+                species &&
+                species !== genetic.genotype &&
+                species !== "Unknown species"
+              ) {
                 outplantSpecies.add(species);
               }
-            } catch {}
+            } catch (err) {
+              console.warn(
+                `Could not parse species from genotype: ${genetic.genotype}`,
+                err
+              );
+            }
           });
         });
 
@@ -109,26 +119,37 @@ export default function OutplantInteractiveMap(props: {
     ...new Set(props.outplants.map((o) => o.contact)),
   ];
 
+  const getAllMonitoringEvents = (outplantId: string) => {
+    return monitoringData
+      .filter((m) => m.eventId === outplantId)
+      .map((monitoringRecord) => {
+        const survivalRate = monitoringRecord.outplantingEvent?.initialQuantity
+          ? Math.round(
+              (monitoringRecord.qtySurvived /
+                monitoringRecord.outplantingEvent.initialQuantity) *
+                100
+            )
+          : 0;
+
+        return {
+          id: monitoringRecord.id,
+          qtySurvived: monitoringRecord.qtySurvived,
+          initialQuantity:
+            monitoringRecord.outplantingEvent?.initialQuantity || 0,
+          survivalRate: survivalRate,
+          monitoringDate: monitoringRecord.date,
+        };
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.monitoringDate).getTime() -
+          new Date(a.monitoringDate).getTime()
+      );
+  };
+
   const getSurvivalData = (outplantId: string) => {
-    const monitoringRecord = monitoringData.find(
-      (m) => m.eventId === outplantId
-    );
-    if (!monitoringRecord) return null;
-
-    const survivalRate = monitoringRecord.outplantingEvent?.initialQuantity
-      ? Math.round(
-          (monitoringRecord.qtySurvived /
-            monitoringRecord.outplantingEvent.initialQuantity) *
-            100
-        )
-      : 0;
-
-    return {
-      qtySurvived: monitoringRecord.qtySurvived,
-      initialQuantity: monitoringRecord.outplantingEvent?.initialQuantity || 0,
-      survivalRate: survivalRate,
-      monitoringDate: monitoringRecord.date,
-    };
+    const events = getAllMonitoringEvents(outplantId);
+    return events.length > 0 ? events[0] : null;
   };
 
   const filteredOutplants = props.outplants.filter((outplant) => {
@@ -154,7 +175,8 @@ export default function OutplantInteractiveMap(props: {
         if (!genetic.genotype) return false;
 
         try {
-          const species = parseCoralId(genetic.genotype);
+          const parsedId = parseCoralId(genetic.genotype);
+          const species = genetic.species || parsedId.speciesName;
           return species?.toLowerCase() === selectedSpecies.toLowerCase();
         } catch (error) {
           console.error("Error parsing coral ID:", error, genetic.genotype);
@@ -342,9 +364,9 @@ export default function OutplantInteractiveMap(props: {
                             popupInfo as PopupInfoWithMultipleEvents
                           ).allOutplants.map(
                             (event: OutplantResponse, idx: number) => {
-                              const survival = showSurvivalData
-                                ? getSurvivalData(event.id)
-                                : null;
+                              const monitoringEvents = showSurvivalData
+                                ? getAllMonitoringEvents(event.id)
+                                : [];
 
                               return (
                                 <div
@@ -372,50 +394,67 @@ export default function OutplantInteractiveMap(props: {
                                       Species:{" "}
                                       {[
                                         ...new Set(
-                                          event.genetics.map((g) =>
-                                            parseCoralId(g.genotype)
-                                          )
+                                          event.genetics.map((g) => {
+                                            const parsedId = parseCoralId(
+                                              g.genotype
+                                            );
+                                            return (
+                                              g.species || parsedId.speciesName
+                                            );
+                                          })
                                         ),
                                       ].join(", ")}
                                     </div>
 
-                                    {survival && (
-                                      <div
-                                        className={`mt-2 p-1 rounded ${
-                                          survival.survivalRate >= 70
-                                            ? "bg-green-50"
-                                            : survival.survivalRate >= 40
-                                            ? "bg-yellow-50"
-                                            : "bg-red-50"
-                                        }`}
-                                      >
+                                    {monitoringEvents.length > 0 && (
+                                      <div className="mt-2">
                                         <div className="font-medium">
-                                          Survival Data:
+                                          Monitoring Data:
                                         </div>
-                                        <div className="grid grid-cols-2 text-xs gap-1">
-                                          <div>Monitoring Date:</div>
-                                          <div>
-                                            {new Date(
-                                              survival.monitoringDate
-                                            ).toLocaleDateString()}
-                                          </div>
-                                          <div>Still Alive:</div>
-                                          <div>
-                                            {survival.qtySurvived} of{" "}
-                                            {survival.initialQuantity}
-                                          </div>
-                                          <div>Survival Rate:</div>
-                                          <div
-                                            className={`font-bold ${
-                                              survival.survivalRate >= 70
-                                                ? "text-green-600"
-                                                : survival.survivalRate >= 40
-                                                ? "text-yellow-600"
-                                                : "text-red-600"
-                                            }`}
-                                          >
-                                            {survival.survivalRate}%
-                                          </div>
+                                        <div className="max-h-[150px] overflow-y-auto mt-1 space-y-2">
+                                          {monitoringEvents.map(
+                                            (survival, mIdx) => (
+                                              <div
+                                                key={`survival-${event.id}-${mIdx}`}
+                                                className={`p-1 rounded ${
+                                                  survival.survivalRate >= 70
+                                                    ? "bg-green-50"
+                                                    : survival.survivalRate >=
+                                                      40
+                                                    ? "bg-yellow-50"
+                                                    : "bg-red-50"
+                                                }`}
+                                              >
+                                                <div className="grid grid-cols-2 text-xs gap-1">
+                                                  <div>Date:</div>
+                                                  <div>
+                                                    {new Date(
+                                                      survival.monitoringDate
+                                                    ).toLocaleDateString()}
+                                                  </div>
+                                                  <div>Alive:</div>
+                                                  <div>
+                                                    {survival.qtySurvived} of{" "}
+                                                    {survival.initialQuantity}
+                                                  </div>
+                                                  <div>Rate:</div>
+                                                  <div
+                                                    className={`font-bold ${
+                                                      survival.survivalRate >=
+                                                      70
+                                                        ? "text-green-600"
+                                                        : survival.survivalRate >=
+                                                          40
+                                                        ? "text-yellow-600"
+                                                        : "text-red-600"
+                                                    }`}
+                                                  >
+                                                    {survival.survivalRate}%
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                       </div>
                                     )}
@@ -539,7 +578,9 @@ export default function OutplantInteractiveMap(props: {
                                 >
                                   <div className="flex flex-col">
                                     <span className="text-gray-900 break-words">
-                                      {parseCoralId(genetic.genotype)}
+                                      {genetic.species ||
+                                        parseCoralId(genetic.genotype)
+                                          .speciesName}
                                     </span>
                                     <span className="text-xs text-gray-500 break-all">
                                       ID: {genetic.genotype}
@@ -566,46 +607,57 @@ export default function OutplantInteractiveMap(props: {
 
                           {showSurvivalData &&
                             (() => {
-                              const survival = getSurvivalData(popupInfo.id);
-                              if (!survival) return null;
+                              const allEvents = getAllMonitoringEvents(
+                                popupInfo.id
+                              );
+                              if (allEvents.length === 0) return null;
 
                               return (
-                                <div
-                                  className={`mt-3 pt-3 border-t border-gray-200 p-2 rounded ${
-                                    survival.survivalRate >= 70
-                                      ? "bg-green-50"
-                                      : survival.survivalRate >= 40
-                                      ? "bg-yellow-50"
-                                      : "bg-red-50"
-                                  }`}
-                                >
-                                  <div className="font-medium mb-1">
-                                    Survival Data:
+                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                  <div className="font-medium mb-2">
+                                    Monitoring Data:
                                   </div>
-                                  <div className="grid grid-cols-2 text-sm gap-1">
-                                    <div>Monitoring Date:</div>
-                                    <div>
-                                      {new Date(
-                                        survival.monitoringDate
-                                      ).toLocaleDateString()}
-                                    </div>
-                                    <div>Still Alive:</div>
-                                    <div>
-                                      {survival.qtySurvived} of{" "}
-                                      {survival.initialQuantity}
-                                    </div>
-                                    <div>Survival Rate:</div>
-                                    <div
-                                      className={`font-bold ${
-                                        survival.survivalRate >= 70
-                                          ? "text-green-600"
-                                          : survival.survivalRate >= 40
-                                          ? "text-yellow-600"
-                                          : "text-red-600"
-                                      }`}
-                                    >
-                                      {survival.survivalRate}%
-                                    </div>
+
+                                  <div className="space-y-3 max-h-[250px] overflow-y-auto">
+                                    {allEvents.map((survivalEvent, idx) => (
+                                      <div
+                                        key={`monitoring-${popupInfo.id}-${idx}`}
+                                        className={`p-2 rounded ${
+                                          survivalEvent.survivalRate >= 70
+                                            ? "bg-green-50"
+                                            : survivalEvent.survivalRate >= 40
+                                            ? "bg-yellow-50"
+                                            : "bg-red-50"
+                                        }`}
+                                      >
+                                        <div className="grid grid-cols-2 text-sm gap-1">
+                                          <div>Monitoring Date:</div>
+                                          <div className="font-medium">
+                                            {new Date(
+                                              survivalEvent.monitoringDate
+                                            ).toLocaleDateString()}
+                                          </div>
+                                          <div>Still Alive:</div>
+                                          <div>
+                                            {survivalEvent.qtySurvived} of{" "}
+                                            {survivalEvent.initialQuantity}
+                                          </div>
+                                          <div>Survival Rate:</div>
+                                          <div
+                                            className={`font-bold ${
+                                              survivalEvent.survivalRate >= 70
+                                                ? "text-green-600"
+                                                : survivalEvent.survivalRate >=
+                                                  40
+                                                ? "text-yellow-600"
+                                                : "text-red-600"
+                                            }`}
+                                          >
+                                            {survivalEvent.survivalRate}%
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               );
