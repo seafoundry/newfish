@@ -37,7 +37,7 @@ const generateCSV = (
       outplant.siteName,
       new Date(outplant.date).toISOString().split("T")[0],
       outplant.contact,
-      parseCoralId(genetic.genotype),
+      genetic.species || parseCoralId(genetic.genotype).speciesName || "Unknown species",
       genetic.genotype,
       genetic.quantity,
       outplant.coordinates,
@@ -206,7 +206,7 @@ const generateCSV = (
         );
         rows.push([
           nurseryGroup.nursery,
-          parseCoralId(row.genetId),
+          parseCoralId(row.genetId).speciesName || "Unknown species",
           row.genetId,
           row.quantity,
           mapping?.externalGenetId || "",

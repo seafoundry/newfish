@@ -100,7 +100,10 @@ export async function getSignedUrl(
           break;
         case "Outplanting":
           baseData.reefName = metadata.reefName;
-          baseData.eventCenterpoint = metadata.eventCenterpoint;
+          // Construct eventCenterpoint from latitude and longitude
+          baseData.eventCenterpoint = metadata.latitude && metadata.longitude 
+            ? `${metadata.longitude},${metadata.latitude}` 
+            : metadata.eventCenterpoint || "0,0"; // Fallback for backward compatibility
           baseData.siteName = metadata.siteName;
           baseData.eventName = metadata.eventName;
 

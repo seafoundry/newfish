@@ -9,6 +9,11 @@ import { FileCategory, FileData } from "@/app/types/files";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import { useCallback, useEffect, useState } from "react";
+import {
+  requiredColumnHeaders,
+  templateColumnHeaders,
+  normalizeColumnHeader,
+} from "@/app/types/columnHeaders";
 
 const categories: FileCategory[] = [
   "Genetics",
@@ -16,13 +21,6 @@ const categories: FileCategory[] = [
   "Outplanting",
   "Monitoring",
 ];
-
-const requiredColumns = {
-  Genetics: ["Local ID/Genet Propagation"],
-  Nursery: ["Local ID", "Quantity", "Nursery"],
-  Outplanting: ["Local ID", "Quantity", "Tag"],
-  Monitoring: ["Qty Survived"],
-};
 
 const validateFileColumns = (
   file: File,
@@ -33,18 +31,29 @@ const validateFileColumns = (
       header: true,
       preview: 1,
       complete: (results) => {
-        const headers = results.meta.fields?.map((h) => h.toLowerCase()) || [];
-        const required = requiredColumns[category].map((col) =>
-          col.toLowerCase()
+        const actualHeaders = results.meta.fields || [];
+        const normalizedActualHeaders = actualHeaders.map(
+          normalizeColumnHeader
+        );
+        const requiredHeaders = requiredColumnHeaders[category];
+        const normalizedRequiredHeaders = requiredHeaders.map(
+          normalizeColumnHeader
         );
 
-        const missingColumns = required.filter((col) => !headers.includes(col));
+        const missingColumns = normalizedRequiredHeaders.filter(
+          (normalizedRequired) =>
+            !normalizedActualHeaders.some(
+              (normalizedActual) => normalizedActual === normalizedRequired
+            )
+        );
 
         if (missingColumns.length > 0) {
+          const missingOriginalHeaders = requiredHeaders.filter((header) =>
+            missingColumns.includes(normalizeColumnHeader(header))
+          );
+
           reject(
-            `Missing required columns: ${requiredColumns[category]
-              .filter((col) => missingColumns.includes(col.toLowerCase()))
-              .join(", ")}`
+            `Missing required columns: ${missingOriginalHeaders.join(", ")}`
           );
         } else {
           resolve(true);
@@ -57,15 +66,8 @@ const validateFileColumns = (
   });
 };
 
-const templateHeaders = {
-  Genetics: ["Local ID/Genet Propogation", "AccessionNumber"],
-  Nursery: ["Local ID", "Quantity", "Nursery"],
-  Outplanting: ["Local ID", "Quantity", "Tag"],
-  Monitoring: ["Local ID", "Qty Survived", "Notes"],
-};
-
 const downloadTemplate = (category: FileCategory) => {
-  const headers = templateHeaders[category];
+  const headers = templateColumnHeaders[category];
   const csvContent = headers.join(",") + "\n";
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
@@ -82,7 +84,8 @@ interface FormData {
   date: string;
   organization: string;
   reefName: string;
-  eventCenterpoint: string;
+  latitude: string;
+  longitude: string;
   siteName: string;
   eventName: string;
   coordinates: string;
@@ -152,7 +155,8 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
     date: "",
     organization: "",
     reefName: "",
-    eventCenterpoint: "",
+    latitude: "",
+    longitude: "",
     siteName: "",
     eventName: "",
     coordinates: "",
@@ -237,8 +241,8 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
           break;
         case "Outplanting":
           if (formData.reefName) metadata.reefName = formData.reefName;
-          if (formData.eventCenterpoint)
-            metadata.eventCenterpoint = formData.eventCenterpoint;
+          if (formData.latitude) metadata.latitude = formData.latitude;
+          if (formData.longitude) metadata.longitude = formData.longitude;
           if (formData.siteName) metadata.siteName = formData.siteName;
           if (formData.eventName) metadata.eventName = formData.eventName;
           break;
@@ -290,7 +294,8 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
         date: "",
         organization: "",
         reefName: "",
-        eventCenterpoint: "",
+        latitude: "",
+        longitude: "",
         siteName: "",
         eventName: "",
         coordinates: "",
@@ -385,7 +390,11 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
                         {file.fileName}
                       </span>
                       <span className="text-xs text-gray-500">
-                        {new Date(file.uploadDate).toLocaleDateString()} ({formatDistanceToNow(new Date(file.uploadDate), { addSuffix: true })})
+                        {new Date(file.uploadDate).toLocaleDateString()} (
+                        {formatDistanceToNow(new Date(file.uploadDate), {
+                          addSuffix: true,
+                        })}
+                        )
                       </span>
                     </div>
                     {signedUrls.find((url) => url.fileId === file.id) && (
@@ -475,9 +484,15 @@ export default function FileUploadForm({ files }: FileUploadFormProps) {
               onChange={handleInputChange}
             />
             <InputField
-              label="Event Centerpoint"
-              name="eventCenterpoint"
-              value={formData.eventCenterpoint}
+              label="Latitude"
+              name="latitude"
+              value={formData.latitude}
+              onChange={handleInputChange}
+            />
+            <InputField
+              label="Longitude"
+              name="longitude"
+              value={formData.longitude}
               onChange={handleInputChange}
             />
             <InputField

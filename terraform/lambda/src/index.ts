@@ -8,6 +8,7 @@ import {
 import { S3Event } from "aws-lambda";
 import { randomUUID } from "crypto";
 import { parse } from "csv-parse/sync";
+import { findHeaderMatch } from "./columnHeaders";
 
 const s3Client = new S3Client({});
 
@@ -120,6 +121,7 @@ export async function handler(event: S3Event) {
           await tx.geneticMapping.createMany({
             data: records.map((record: Record<string, string>) => {
               const columns = Object.values(record);
+
               return {
                 id: randomUUID(),
                 userId: user.id,
@@ -155,14 +157,39 @@ export async function handler(event: S3Event) {
           prisma.geneticsRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
-              const localIdGenetProp = record["Local ID/Genet Propagation"];
-              const accessionNumber = record["Accession Number"] || "None"; // this might not be included
-              const species = record["Species"];
+              const headers = Object.keys(record);
+
+              const localIdHeader = findHeaderMatch(
+                headers,
+                "Local ID/Genet Propagation"
+              );
+              const accessionNumberHeader = findHeaderMatch(
+                headers,
+                "Accession Number"
+              );
+              const speciesHeader = findHeaderMatch(headers, "Species");
+
+              if (!localIdHeader) {
+                throw new Error(
+                  "Required column 'Local ID/Genet Propagation' not found"
+                );
+              }
+
+              if (!speciesHeader) {
+                throw new Error("Required column 'Species' not found");
+              }
+
+              const localIdGenetProp = record[localIdHeader];
+              const accessionNumber = accessionNumberHeader
+                ? record[accessionNumberHeader]
+                : "None";
+              const species = record[speciesHeader];
 
               const additionalData = { ...record };
-              delete additionalData["Local ID/Genet Propagation"];
-              delete additionalData["Species"];
-              delete additionalData["Accession Number"];
+              delete additionalData[localIdHeader];
+              if (speciesHeader) delete additionalData[speciesHeader];
+              if (accessionNumberHeader)
+                delete additionalData[accessionNumberHeader];
 
               return {
                 id: randomUUID(),
@@ -201,15 +228,26 @@ export async function handler(event: S3Event) {
           prisma.nurseryRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
-              const localIdGenetProp = record["Local ID"];
-              const quantity = parseInt(record["Quantity"]);
-              const nursery = record["Nursery"];
+              const headers = Object.keys(record);
+
+              const localIdHeader = findHeaderMatch(headers, "Local ID");
+              const quantityHeader = findHeaderMatch(headers, "Quantity");
+              const nurseryHeader = findHeaderMatch(headers, "Nursery");
+
+              if (!localIdHeader || !quantityHeader || !nurseryHeader) {
+                throw new Error(
+                  "Required columns 'Local ID', 'Quantity', or 'Nursery' not found"
+                );
+              }
+
+              const localIdGenetProp = record[localIdHeader];
+              const quantity = parseInt(record[quantityHeader]);
+              const nursery = record[nurseryHeader];
 
               const additionalData = { ...record };
-
-              delete additionalData["Local ID"];
-              delete additionalData["Quantity"];
-              delete additionalData["Nursery"];
+              delete additionalData[localIdHeader];
+              delete additionalData[quantityHeader];
+              delete additionalData[nurseryHeader];
 
               return {
                 id: randomUUID(),
@@ -239,15 +277,26 @@ export async function handler(event: S3Event) {
           await tx.outplantingRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
-              const genetId = record["Local ID"];
-              const quantity = parseInt(record["Quantity"]);
-              const grouping = record["Tag"];
+              const headers = Object.keys(record);
+
+              const localIdHeader = findHeaderMatch(headers, "Local ID");
+              const quantityHeader = findHeaderMatch(headers, "Quantity");
+              const tagHeader = findHeaderMatch(headers, "Tag");
+
+              if (!localIdHeader || !quantityHeader || !tagHeader) {
+                throw new Error(
+                  "Required columns 'Local ID', 'Quantity', or 'Tag' not found"
+                );
+              }
+
+              const genetId = record[localIdHeader];
+              const quantity = parseInt(record[quantityHeader]);
+              const grouping = record[tagHeader];
 
               const additionalData = { ...record };
-
-              delete additionalData["Local ID"];
-              delete additionalData["Quantity"];
-              delete additionalData["Tag"];
+              delete additionalData[localIdHeader];
+              delete additionalData[quantityHeader];
+              delete additionalData[tagHeader];
 
               return {
                 id: randomUUID(),
@@ -277,15 +326,25 @@ export async function handler(event: S3Event) {
           await tx.monitoringRow.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: records.map((record: any) => {
-              const { ...rest } = record;
+              const headers = Object.keys(record);
+              const qtySurvivedHeader = findHeaderMatch(
+                headers,
+                "Qty Survived"
+              );
 
-              const quantitySurvived = parseInt(record["Qty Survived"]);
+              if (!qtySurvivedHeader) {
+                throw new Error("Required column 'Qty Survived' not found");
+              }
+
+              const quantitySurvived = parseInt(record[qtySurvivedHeader]);
+              const additionalData = { ...record };
+              delete additionalData[qtySurvivedHeader];
 
               return {
                 id: randomUUID(),
                 fileUploadId: file.id,
                 QtySurvived: quantitySurvived,
-                additionalData: rest,
+                additionalData,
               } as MonitoringRow;
             }),
           });

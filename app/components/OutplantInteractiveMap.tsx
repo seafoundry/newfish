@@ -440,16 +440,20 @@ export default function OutplantInteractiveMap(props: {
                                                   <div>Rate:</div>
                                                   <div
                                                     className={`font-bold ${
-                                                      survival.survivalRate >=
-                                                      70
-                                                        ? "text-green-600"
-                                                        : survival.survivalRate >=
-                                                          40
-                                                        ? "text-yellow-600"
-                                                        : "text-red-600"
+                                                      survival.survivalRate > 0
+                                                        ? survival.survivalRate >=
+                                                          70
+                                                          ? "text-green-600"
+                                                          : survival.survivalRate >=
+                                                            40
+                                                          ? "text-yellow-600"
+                                                          : "text-red-600"
+                                                        : "text-gray-600"
                                                     }`}
                                                   >
-                                                    {survival.survivalRate}%
+                                                    {survival.survivalRate > 0
+                                                      ? `${survival.survivalRate}%`
+                                                      : "No monitoring data"}
                                                   </div>
                                                 </div>
                                               </div>
@@ -516,16 +520,22 @@ export default function OutplantInteractiveMap(props: {
                                         )
                                       : 0;
 
-                                  let colorClass = "text-red-600";
-                                  if (cumulativeSurvivalRate >= 70)
-                                    colorClass = "text-green-600";
-                                  else if (cumulativeSurvivalRate >= 40)
-                                    colorClass = "text-yellow-600";
+                                  let colorClass = "text-gray-600";
+
+                                  if (cumulativeSurvivalRate > 0) {
+                                    if (cumulativeSurvivalRate >= 70)
+                                      colorClass = "text-green-600";
+                                    else if (cumulativeSurvivalRate >= 40)
+                                      colorClass = "text-yellow-600";
+                                    else colorClass = "text-red-600";
+                                  }
 
                                   return totalInitial > 0 ? (
                                     <div className={`font-bold ${colorClass}`}>
-                                      {totalSurvived} of {totalInitial} corals (
-                                      {cumulativeSurvivalRate}%)
+                                      {totalSurvived} of {totalInitial} corals
+                                      {cumulativeSurvivalRate > 0
+                                        ? ` (${cumulativeSurvivalRate}%)`
+                                        : " (No monitoring data)"}
                                     </div>
                                   ) : (
                                     <div className="text-gray-500">
@@ -645,15 +655,20 @@ export default function OutplantInteractiveMap(props: {
                                           <div>Survival Rate:</div>
                                           <div
                                             className={`font-bold ${
-                                              survivalEvent.survivalRate >= 70
-                                                ? "text-green-600"
-                                                : survivalEvent.survivalRate >=
-                                                  40
-                                                ? "text-yellow-600"
-                                                : "text-red-600"
+                                              survivalEvent.survivalRate > 0
+                                                ? survivalEvent.survivalRate >=
+                                                  70
+                                                  ? "text-green-600"
+                                                  : survivalEvent.survivalRate >=
+                                                    40
+                                                  ? "text-yellow-600"
+                                                  : "text-red-600"
+                                                : "text-gray-600"
                                             }`}
                                           >
-                                            {survivalEvent.survivalRate}%
+                                            {survivalEvent.survivalRate > 0
+                                              ? `${survivalEvent.survivalRate}%`
+                                              : "No monitoring data"}
                                           </div>
                                         </div>
                                       </div>

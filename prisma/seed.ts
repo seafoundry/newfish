@@ -26,14 +26,6 @@ async function main() {
       console.log(
         `Local Genet: ${localGenet}, Accession Number: ${accessionNumber}`
       );
-
-      // await prisma.accessionGenet.create({
-      //   data: {
-      //     userId: "cm3z7dn7i000011ngzkg99sel",
-      //     genetId: localGenet,
-      //     accessionId: accessionNumber,
-      //   },
-      // });
     }
   }
 }

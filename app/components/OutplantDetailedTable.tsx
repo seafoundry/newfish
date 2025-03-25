@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { MonitoringResponse } from "../actions/getMonitoring";
 import { parseCoralId, splitSpeciesName } from "../lib/coral";
 import { OutplantResponse } from "../types/files";
+import { deleteOutplantingEvent } from "../actions/deleteOutplantingEvent";
+import { useRouter } from "next/navigation";
 
 interface GeneticWithDetails {
   genus: string;
@@ -21,10 +23,32 @@ export default function OutplantDetailedTable(props: {
   monitoringData?: MonitoringResponse[];
   showSurvivalData?: boolean;
 }) {
+  const router = useRouter();
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grouping" | "localId" | "species">(
     "grouping"
   );
+  const [isDeleting, setIsDeleting] = useState<Record<string, boolean>>({});
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteOutplantingEvent = async (eventId: string) => {
+    if (window.confirm("Are you sure you want to delete this outplanting event? This will also delete any associated monitoring data.")) {
+      setIsDeleting(prev => ({ ...prev, [eventId]: true }));
+      try {
+        const result = await deleteOutplantingEvent(eventId);
+        if (!result.success) {
+          setDeleteError(result.message);
+        } else {
+          router.refresh();
+        }
+      } catch (error) {
+        setDeleteError("Failed to delete outplanting event");
+        console.error("Error deleting outplanting event:", error);
+      } finally {
+        setIsDeleting(prev => ({ ...prev, [eventId]: false }));
+      }
+    }
+  };
 
   const eventGroups = props.outplants.map((outplant) => {
     const genetics: GeneticWithDetails[] = outplant.genetics.map((genetic) => {
@@ -409,6 +433,20 @@ export default function OutplantDetailedTable(props: {
 
   return (
     <div className="max-w-7xl mx-auto p-4">
+      {deleteError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+          <span className="block sm:inline">{deleteError}</span>
+          <span 
+            className="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer"
+            onClick={() => setDeleteError(null)}
+          >
+            <span className="sr-only">Close</span>
+            <svg className="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </span>
+        </div>
+      )}
       <div className="mb-4">
         <div className="flex items-center justify-end space-x-4">
           <div className="text-sm text-gray-600">Group by:</div>
@@ -474,7 +512,7 @@ export default function OutplantDetailedTable(props: {
                       </th>
                     )}
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Details
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -518,17 +556,20 @@ export default function OutplantDetailedTable(props: {
                               <div
                                 className={`font-medium ${
                                   event.monitoring.survivalRate &&
-                                  event.monitoring.survivalRate >= 70
-                                    ? "text-green-600"
-                                    : event.monitoring.survivalRate &&
-                                      event.monitoring.survivalRate >= 40
-                                    ? "text-yellow-600"
-                                    : "text-red-600"
+                                  event.monitoring.survivalRate > 0
+                                    ? event.monitoring.survivalRate >= 70
+                                      ? "text-green-600"
+                                      : event.monitoring.survivalRate >= 40
+                                        ? "text-yellow-600"
+                                        : "text-red-600"
+                                    : "text-gray-600"
                                 }`}
                               >
                                 {event.monitoring.qtySurvived} of{" "}
-                                {event.monitoring.initialQuantity}(
-                                {event.monitoring.survivalRate}%)
+                                {event.monitoring.initialQuantity}
+                                {event.monitoring.survivalRate && event.monitoring.survivalRate > 0
+                                  ? ` (${event.monitoring.survivalRate}%)`
+                                  : " (No monitoring data)"}
                               </div>
                             ) : (
                               <span className="text-gray-400">No data</span>
@@ -536,17 +577,29 @@ export default function OutplantDetailedTable(props: {
                           </td>
                         )}
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          <button
-                            onClick={() =>
-                              setExpandedEvent(
-                                expandedEvent === event.id ? null : event.id
-                              )
-                            }
-                            className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                          >
-                            {expandedEvent === event.id ? "Hide" : "Show"}{" "}
-                            Details
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() =>
+                                setExpandedEvent(
+                                  expandedEvent === event.id ? null : event.id
+                                )
+                              }
+                              className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                            >
+                              {expandedEvent === event.id ? "Hide" : "Show"}{" "}
+                              Details
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteOutplantingEvent(event.id);
+                              }}
+                              disabled={isDeleting[event.id]}
+                              className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
+                            >
+                              {isDeleting[event.id] ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
 

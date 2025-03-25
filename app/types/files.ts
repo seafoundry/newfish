@@ -2,7 +2,8 @@ export type FileCategory =
   | "Genetics"
   | "Nursery"
   | "Outplanting"
-  | "Monitoring";
+  | "Monitoring"
+  | "GeneticsMapping";
 
 export interface BaseFileMetadata {
   id: string;
@@ -26,7 +27,8 @@ export interface NurseryFile extends BaseFileMetadata {
 export interface OutplantingFile extends BaseFileMetadata {
   category: "Outplanting";
   reefName: string;
-  eventCenterpoint: string;
+  latitude: string;
+  longitude: string;
   siteName: string;
   eventName: string;
 }
